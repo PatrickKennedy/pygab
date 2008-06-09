@@ -2,11 +2,20 @@
 PyGab - A Python Jabber Framework
 =================================
 
-Dependencies:
+PyGab was born from Perry Lorier's Google Talk: Conference Bot and looks to be
+modularly extensible, making extensive use of plugins (Work In Progress).
+
+http://pygab.googlecode.com
+
+
+Requirements
+------------
 
  - Python >= 2.5
 
- - XMPPPy 0.4.x
+ - Dependancies below this point are included with the source.
+
+ - XMPPPy 0.4.2
    http://xmpppy.sourceforge.net
 
  - Dict4Ini 0.9.5
@@ -14,3 +23,26 @@ Dependencies:
 
  - Argparse 0.9.0
    http://argparse.python-hosting.com
+
+Installing & Running
+--------------------
+
+Bots are separated into (<name>.py, /<name>/) pairs:
+
+  ex: gbot.py, /gbot/
+
+Module specific code stored in it's folder:
+
+  ex: /gbot/plugins/
+
+Templates for each module's various ini files are stored in /templates/:
+
+  ex: /templates/<name>-config.ini
+
+When running a bot for the first time you'll need to copy all templates to the
+module's folder and strip "<name>-" from the front of them. You are then free to
+make any adjustments you like. This will eventually be automatic.
+
+To run a bot just execute it's <name>.py file in the root folder:
+
+  ex: python gbot.py
