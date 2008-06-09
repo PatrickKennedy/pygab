@@ -17,7 +17,9 @@ class CommandMount:
 
 	=====  =====================================================================
 
+
 	Plugins implementing this mount should also provide the following functions:
+
 	=========  =================================================================
 	__init__   This function gets passed an instance of the bot.
 
@@ -47,14 +49,18 @@ class HookMount:
 
 	Plugins implementing this mount should provide the following attributes:
 
-	=====  =====================================================================
-	name   Not used but still needed. Don't ask.
+	=========  =================================================================
+	   name    Not used but still needed. Don't ask.
 
-	loc    The location of the hook to be run.
+	   loc     The location of the hook to be run.
 
-	=====  =====================================================================
+	 persist   When defined the hook will be run each time a location is called.
+
+	=========  =================================================================
+
 
 	Plugins implementing this mount should also provide the following functions:
+
 	=========  =================================================================
 	__init__   This function gets passed an instance of the bot.
 
@@ -68,6 +74,6 @@ class HookMount:
 	"""
 	__metaclass__ = PluginMount
 
-	# LOC_GET_MSG passes a JID object of the calling user
-	# and a string containing their message.
+	# LOC_GET_MSG passes a JID object of the message sender
+	# and a string containing the message.
 	LOC_GET_MSG = 'get_msg'

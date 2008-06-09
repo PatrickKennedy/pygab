@@ -163,14 +163,21 @@ class ConferenceBot(bot.Bot):
 		log(*args)
 
 	def hook(self, loc, *args, **kwargs):
+		'''hook(str, loc, *args, **kwargs) -> bool
+
+		Run all persistent hooks at 'loc' and return False if any non-persistent
+		hooks return True.
+
+		'''
 		# Multiple plugins can register hooks, the first one to
 		# return True causes all further processing of that hook
 		# to be aborted.
 		#print "Running hook. (Loc: %s)" % loc
-		for hook in HookMount.plugins.itervalues():
+		for hook in HookMount.get_plugin_list(loc=loc, persist=True):
+			hook(self).run(*args, **kwargs)
+
+		for hook in HookMount.get_plugin_list(loc=loc, persist=None):
 			#print "Checking hook (%s) located at: %s" % (hook, hook.loc)
-			if hook.loc != loc:
-				continue
 			if hook(self).run(*args, **kwargs):
 				return False
 		return True
