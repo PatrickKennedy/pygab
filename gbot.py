@@ -160,6 +160,10 @@ class ConferenceBot(bot.Bot):
 			if cmd.file == plug_path:
 				cmd(self).__exit__()
 
+		for hook in HookMount.plugins.values():
+			if hook.file == plug_path:
+				hook(self).__exit__()
+
 	def log(self,*args):
 		log(*args)
 

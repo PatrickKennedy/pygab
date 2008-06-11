@@ -49,15 +49,17 @@ class HookMount:
 
 	Plugins implementing this mount should provide the following attributes:
 
-	=========  =================================================================
-	   name    Not used but still needed. Don't ask.
+	========  =================================================================
+	name      Not used but still needed. Don't ask.
 
-	   loc     The location of the hook to be run.
-			   Locations are listed in /common/const.py
+	loc       The location of the hook to be run.
+			  Locations are listed in /common/const.py
 
-	 persist   When defined the hook will be run each time a location is called.
+	file      The absolute path to a file. You are able to use __file__.
 
-	=========  =================================================================
+	persist   When defined the hook will be run each time a location is called.
+
+	========  =================================================================
 
 
 	Plugins implementing this mount should also provide the following functions:
