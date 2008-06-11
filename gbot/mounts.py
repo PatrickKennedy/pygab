@@ -53,6 +53,7 @@ class HookMount:
 	   name    Not used but still needed. Don't ask.
 
 	   loc     The location of the hook to be run.
+			   Locations are listed in /common/const.py
 
 	 persist   When defined the hook will be run each time a location is called.
 
@@ -73,7 +74,3 @@ class HookMount:
 
 	"""
 	__metaclass__ = PluginMount
-
-	# LOC_GET_MSG passes a JID object of the message sender
-	# and a string containing the message.
-	LOC_GET_MSG = 'get_msg'

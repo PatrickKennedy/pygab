@@ -37,6 +37,7 @@ import	xmpp
 import	bot
 import	os
 
+from	const	import 	*
 from	ini 	import	iMan
 from	utils	import	*
 from	gbot	import	*
@@ -198,19 +199,19 @@ class ConferenceBot(bot.Bot):
 				self.error(user, "Unknown command, try !help")
 				return
 
-			#assert isinstance(cmd, CommandMount)
+			#assert isinstance(cmd, CommandMount
 
-			if cmd_func.rank == CommandMount.RANK_USER:
+			if cmd_func.rank == const.RANK_USER:
 				cmd_func(self).run(user, args)
 
-			elif cmd_func.rank == CommandMount.RANK_MOD:
-				if has_rank(user, 'mod') or has_rank(user, 'admin'):
+			elif cmd_func.rank == const.RANK_MOD:
+				if has_rank(user, const.RANK_MOD) or has_rank(user, const.RANK_ADMIN):
 					cmd_func(self).run(user, args)
 				else:
 					self.error(user, "You must be a moderator to use that command.")
 
-			elif cmd_func.rank == CommandMount.RANK_ADMIN:
-				if has_rank(user, 'admin'):
+			elif cmd_func.rank == const.RANK_ADMIN:
+				if has_rank(user, const.RANK_ADMIN):
 					cmd_func(self).run(user, args)
 				else:
 					self.error(user, "You must be an admin to use that command.")
@@ -262,13 +263,21 @@ class ConferenceBot(bot.Bot):
 		if msg[:1] in iMan.config.system.commandprefix:
 			self.command(user, msg[1:])
 		elif user != getjid(server.username):
-			if self.hook('get_msg', user, msg):
+			if self.hook(const.LOC_EV_MSG, user, msg):
 				# self.log("<%s> %s" % (getnickname(user), msg))
 				self.sendtoall("<%s> %s" % (getnickname(user), msg),
 								butnot=[unicode(user)]
 				)
 
+	def ev_iq(self, user, msg):
+		# Process persistant hooks.
+		if not self.hook(const.LOC_EV_IQ, user, status):
+			return
+
 	def ev_unsubscribe(self, user, msg):
+		if not self.hook(const.LOC_EV_UNSUBSCRIBE, user, msg):
+			return
+
 		user = user.getStripped()
 		# User removed us from their list
 		# So remove them from ours.
@@ -278,8 +287,11 @@ class ConferenceBot(bot.Bot):
 		self.refreshRoster()
 
 	def ev_unsubscribed(self, user, msg):
+		"""User has forced us to remove them from our list."""
+		if not self.hook(const.LOC_EV_UNSUBSCRIBED, user, msg):
+			return
+
 		user = user.getStripped()
-		# User has forced us to remove them from our list
 		log(user, "unsubscribing:", msg)
 		self.removeUser(user)
 		# Remove us from their list
@@ -287,6 +299,9 @@ class ConferenceBot(bot.Bot):
 		self.refreshRoster()
 
 	def ev_subscribe(self, user, msg):
+		if not self.hook(const.LOC_EV_SUBSCRIBE, user, msg):
+			return
+
 		#FIXME: Currently getjid can only rebuild JID's with gmail.com domains,
 		# so we need to reject not gmail.com users.
 		if not user.get_domain() == server.domain:
@@ -299,6 +314,40 @@ class ConferenceBot(bot.Bot):
 		self.addUser(user)
 		self.acceptUser(user)
 		self.refreshRoster()
+
+	def ev_subscribed(self, user, msg):
+		if not self.hook(const.LOC_EV_SUBSCRIBED, user, msg):
+			return
+
+	def ev_unavilable(self, user, status):
+		# Process persistant hooks.
+		if not self.hook(const.LOC_EV_UNAVILABLE, user, status):
+			return
+
+	def ev_online(self, user, status):
+		# Process persistant hooks.
+		if not self.hook(const.LOC_EV_ONLINE, user, status):
+			return
+
+	def ev_away(self, user, status):
+		# Process persistant hooks.
+		if not self.hook(const.LOC_EV_AWAY, user, status):
+			return
+
+	def ev_chat(self, user, status):
+		# Process persistant hooks.
+		if not self.hook(const.LOC_EV_CHAT, user, status):
+			return
+
+	def ev_dnd(self, user, status):
+		# Process persistant hooks.
+		if not self.hook(const.LOC_EV_DND, user, status):
+			return
+
+	def ev_xa(self, user, status):
+		# Process persistant hooks.
+		if not self.hook(const.LOC_EV_XA, user, status):
+			return
 
 if __name__ == '__main__':
 	me = ConferenceBot()
