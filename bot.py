@@ -160,21 +160,15 @@ class Bot(object):
 			except AttributeError, e:
 				traceback.print_stack()
 				print "AttributeError:", e
-				try:
-					self.stop()
-					self.reconnect()
-					self.run()
-				except:
-					traceback.print_exc()
+				self.stop()
+				self.reconnect()
+				self.run()
 			except IOError, e:
 				traceback.print_stack()
 				print "IOError:", e
-				try:
-					self.stop()
-					self.reconnect()
-					self.run()
-				except:
-					traceback.print_exc()
+				self.stop()
+				self.reconnect()
+				self.run()
 			except ExpatError, e:
 				continue
 			except:
