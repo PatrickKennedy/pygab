@@ -44,10 +44,11 @@ from 	xml.parsers.expat	import	ExpatError
 # It creates a "Bot" object which deals with taking commands and turning
 # them into xmpp stanzas and sending them, as well as providing functions
 # to override when events occur.
-
+#
 # You are expected to override functions beginning with "ev_"
-
-# The "process" function is also available
+#
+# The "process" function is also available to be overridden.
+# It is called directly after the jabber client's process function.
 
 def _promote_jid(jid):
 	"""_promote_jid(str jid) -> xmpp.protocol.JID
@@ -190,7 +191,7 @@ class Bot(object):
 		"""
 		for event in self.timers:
 			t = self.timers[event]
-			if time.time() - t['last_run'] > t['interval'] and t['repeat'] != 0:
+			if time.time() - t['last_run'] > t['delay'] and t['repeat'] != 0:
 				t['last_run'] = time.time()
 				event(*t['args'])
 				# Deincriment time repeats.
@@ -234,9 +235,9 @@ class Bot(object):
 		self.running = False
 		self.logf.close()
 
-	def addTimer(self, time, event, repeat=-1, type="minutes", *args):
-		"""addTimer(int time, callable event, repeat=-1,
-			type='minutes', parent='self') -> None
+	def addTimer(self, delay, event, repeat=-1, type="minutes", args=[]):
+		"""addTimer(int delay, callable event, repeat=-1,
+					type='minutes', args=[]) -> None
 
 		Add an event to run at a set number of minutes.
 		'args' are any extra arguments to be passed to the event.
@@ -244,18 +245,18 @@ class Bot(object):
 		"""
 
 		if type.lower() == "hours":
-			time = time * 60 * 60
+			delay = delay * 60 * 60
 		elif type.lower() == "minutes":
-			time = time * 60
+			delay = delay * 60
 		self.timers[event] = {
-				'interval'	:	time,
+				'delay'		:	delay,
 				'last_run'	:	0,
 				'repeat'	:	repeat,
 				'args'		:	args
 			}
 
 	def removeTimer(self, timer_name):
-		"""removeTimer(str time_name) -> None
+		"""removeTimer(str timer_name) -> None
 
 		Delete an event's timer instance.
 
