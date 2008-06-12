@@ -18,6 +18,8 @@ import	shlex
 import	sys
 import	time
 
+import	const
+
 from	datetime	import	datetime
 from	ini			import	*
 from	utils		import	*
@@ -29,7 +31,7 @@ except ImportError, e:
 	print e
 
 class LoadParser(object):
-	rank = CommandMount.RANK_USER
+	rank = const.RANK_USER
 	file = __file__
 
 	load_parser = argparse.ArgumentParser(prog='!(re|un)load', add_help=False)

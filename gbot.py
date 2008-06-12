@@ -29,15 +29,15 @@
 
 from __future__ import with_statement
 
+import	os
 import	sys
 import	time
 import	traceback
 import	xmpp
 
 import	bot
-import	os
+import	const
 
-from	const	import 	*
 from	ini 	import	iMan
 from	utils	import	*
 from	gbot	import	*
@@ -68,7 +68,6 @@ class ConferenceBot(bot.Bot):
 
 		# Load Module specific ini files.
 		self.module = MODULE
-		iMan.load('roster', self.module)
 
 		# Start timers.
 		self.addTimer(20, iMan.saveall, None, type='seconds')
@@ -151,17 +150,27 @@ class ConferenceBot(bot.Bot):
 		# We're using __file__ to know what command classes to unload.
 		plugin = {'__file__':path_}
 		exec a in plugin
-		debug('core', "Loading plugin (%s)" % name)
+		# If the plugin has any initialization to be done, handle that here.
+		handler = PluginInitializers.plugins.get(path_)
+		if handler:
+			handler(self)
+
+		debug('core', "Loading Plugin (%s)" % name)
 		self._pluginhash[name] = hash(a)
 		return True
 
-	def unload_plugin(self, plug_path):
+	def unload_plugin(self, path_):
+		debug('core', "Unloading Plugin (%s)" % path_)
+		initalizer = PluginInitializers.plugins.get(path_)
+		if initalizer:
+			initalizer(self).__exit__()
+
 		for cmd in CommandMount.plugins.values():
-			if cmd.file == plug_path:
+			if cmd.file == path_:
 				cmd(self).__exit__()
 
 		for hook in HookMount.plugins.values():
-			if hook.file == plug_path:
+			if hook.file == path_:
 				hook(self).__exit__()
 
 	def log(self,*args):
@@ -275,7 +284,7 @@ class ConferenceBot(bot.Bot):
 
 	def ev_iq(self, user, msg):
 		# Process persistant hooks.
-		if not self.hook(const.LOC_EV_IQ, user, status):
+		if not self.hook(const.LOC_EV_IQ, user, msg):
 			return
 
 	def ev_unsubscribe(self, user, msg):

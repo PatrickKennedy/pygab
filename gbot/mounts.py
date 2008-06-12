@@ -1,6 +1,35 @@
 from pluginmount import PluginMount
 
-__all__ = ['CommandMount', 'HookMount']
+__all__ = ['PluginInitializers' ,'CommandMount', 'HookMount']
+
+class PluginInitializers:
+	"""
+	Stores Initalization classes which run when the plugin is loaded.
+
+	Plugins implementing this mount should provide the following attributes:
+
+	=====  =====================================================================
+	name   The path to the plugin. You may use __file__.
+	       (The base class for each mount stores classes by their name attribute
+		   so we use it here so we don't have to iterate over the dictionary
+		   when we unload the plugin.)
+
+	=====  =====================================================================
+
+
+	Plugins implementing this mount should also provide the following functions:
+
+	=========  =================================================================
+	__init__   This function gets passed an instance of the bot.
+
+	__exit__   No arguments are passed to this function.
+
+	=========  =================================================================
+
+
+	"""
+	__metaclass__ = PluginMount
+
 
 class CommandMount:
 	"""

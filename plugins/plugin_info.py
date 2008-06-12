@@ -14,6 +14,8 @@
 import	argparse
 import	shlex
 
+import	const
+
 from	ini		import	iMan
 from	utils	import	*
 module = get_module()
@@ -25,7 +27,7 @@ except ImportError, e:
 
 class Help(CommandMount):
 	name = 'help'
-	rank = CommandMount.RANK_USER
+	rank = const.RANK_USER
 	file = __file__
 
 	help_parser = argparse.ArgumentParser(prog='!help', add_help=False,
@@ -103,7 +105,7 @@ class Help(CommandMount):
 
 class Names(CommandMount):
 	name = 'w'
-	rank = CommandMount.RANK_USER
+	rank = const.RANK_USER
 	file = __file__
 
 	name_parser = argparse.ArgumentParser(prog='!w', add_help=False,
