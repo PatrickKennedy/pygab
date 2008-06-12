@@ -34,9 +34,8 @@
 					if not hasattr(p, attr):
 						flag = False
 				else:
-					if getattr(p, attr, None) != value:
+					if value not in getattr(p, attr, []):
 						flag = False
-						break
 			if flag:
 				plugins.append(p)
 		return plugins
