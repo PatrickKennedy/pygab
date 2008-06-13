@@ -54,11 +54,14 @@ server = iMan.config.server
 
 def log(*args):
 	"""Replacement for print, which doesn't deal with unicode well"""
-	msg=u" ".join(map(unicode,args))
+	global me
+	msg = ' '.join(map(unicode,args))
 	# Replace unencodable charactors with ?
-	print >>bot.logf, time.strftime("%Y-%m-%d %H:%M:%S"), msg.encode(sys.getdefaultencoding(),"replace")
-	bot.logf.flush()
-	print time.strftime("%H:%M:%S"), msg.encode(sys.getdefaultencoding(),"replace")
+	msg = '%s %s' % (time.strftime("%Y-%m-%d %H:%M:%S"),
+					 msg.encode(sys.getdefaultencoding(), "replace"))
+	print msg
+	print >> me.logf, msg
+	me.logf.flush()
 
 class ConferenceBot(bot.Bot):
 	def __init__(self):
