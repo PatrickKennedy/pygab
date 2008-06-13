@@ -164,7 +164,6 @@ class IniManager(object):
 
 		#print "Debug: IniManager has saved all ini files."
 
-
 	def has_entry(self, ini, section, key, entry):
 		'''has_entry(* ini, str section, str key, * entry) -> bool
 
@@ -172,7 +171,11 @@ class IniManager(object):
 
 		'''
 		if not isinstance(ini, DictIni):
-			ini = self.__dict__[ini]
+			# Always returns False if the ini hasn't been loaded.
+			try:
+				ini = self.__dict__[ini]
+			except KeyError:
+				return False
 
 		if ini.has_key(section) and ini[section].has_key(key):
 			return entry in ini[section][key]
@@ -185,7 +188,12 @@ class IniManager(object):
 
 		'''
 		if not isinstance(ini, DictIni):
-			ini = self.__dict__[ini]
+			# Always returns False if the ini hasn't been loaded.
+			try:
+				ini = self.__dict__[ini]
+			except KeyError:
+				return False
+
 		if self.has_entry(ini, section, key, entry):
 			return False
 
@@ -203,7 +211,12 @@ class IniManager(object):
 
 		'''
 		if not isinstance(ini, DictIni):
-			ini = self.__dict__[ini]
+			# Always returns False if the ini hasn't been loaded.
+			try:
+				ini = self.__dict__[ini]
+			except KeyError:
+				return False
+
 		if not self.has_entry(ini, section, key, entry):
 			return False
 
@@ -220,7 +233,11 @@ class IniManager(object):
 
 		'''
 		if not isinstance(ini, DictIni):
-			ini = self.__dict__[ini]
+			# Always returns False if the ini hasn't been loaded.
+			try:
+				ini = self.__dict__[ini]
+			except KeyError:
+				return False
 
 		ini[section][key] = [entry]
 		ini.save()
@@ -243,7 +260,7 @@ class IniManager(object):
 		return ini
 
 	def _read_or_prompt(self, ini, section, option, description):
-		"Read an option from the general section of the config, or prompt for it"
+		'''Read an option from 'ini', or prompt for it'''
 		if not ini[section].get(option):
 			ini[section][option] = raw_input('%s\nLeave Blank to use Default > ' % description)
 

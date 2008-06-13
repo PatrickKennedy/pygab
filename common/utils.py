@@ -131,41 +131,39 @@ def get_nick(jid):
 #= Rank Commands
 def has_rank(jid, rank):
 	"""Return True if 'jid' is 'rank'."""
-	return iMan.roster.has_entry(jid, "rank", rank)
+	return iMan.has_entry('roster', jid, "rank", rank)
 def del_rank(jid, rank):
 	"""Delete 'rank' from 'jid'."""
-	return iMan.roster.del_entry(jid, "rank", rank)
+	return iMan.del_entry('roster', jid, "rank", rank)
 def add_rank(jid, rank):
 	"""Add 'rank' to 'jid'."""
-	return iMan.roster.add_entry(jid, "rank", rank)
+	return iMan.add_entry('roster', jid, "rank", rank)
 def set_rank(jid, rank):
 	"""Set 'jid's rank to 'rank'."""
-	return iMan.roster.set_entry(jid, "rank", rank)
+	return iMan.set_entry('roster', jid, "rank", rank)
 
 #=====
 #= Status Commands
 def has_status(jid, status):
 	"""Return True if 'jid' has 'status'."""
-	return iMan.roster.has_entry(jid, "status", status)
+	return iMan.has_entry('roster', jid, "status", status)
 def del_status(jid, status):
 	"""Delete 'status' from 'jid'."""
-	return iMan.roster.del_entry(jid, "status", status)
+	return iMan.del_entry('roster', jid, "status", status)
 def add_status(jid, status):
 	"""Add 'status' to 'jid'."""
-	return iMan.roster.add_entry(jid, "status", status)
+	return iMan.add_entry('roster', jid, "status", status)
 def set_status(jid, status):
 	"""Set 'jid's status to 'status'."""
-	return iMan.roster.set_entry(jid, "status", status)
+	return iMan.set_entry('roster', jid, "status", status)
 
 #=====
 #= Misc (Ordered Alphabetically)
 def addUser(jid):
-	jid = unicode(jid)
-	iMan.setEntry(iMan.roster, jid, "last_login", time.time())
-	iMan.setEntry(iMan.roster, jid, "last_message", time.time())
-	#Don't ovreride an admin or mod's rank.
-	if not isRank(jid, "admin") and not isRank(jid, "mod"):
-		setRank(jid, "user")
+	jid = unicode(jid.getStripped())
+	iMan.set_entry('roster', jid, "last_login", time.time())
+	iMan.set_entry('roster', jid, "last_message", time.time())
+	set_rank(jid, const.RANK_USER)
 
 def formattime(time_tuple, format=''):
 	"""formattime(tuple time, str format=iMan.config.system.timeformat) -> str
