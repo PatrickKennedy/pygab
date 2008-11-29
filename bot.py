@@ -35,18 +35,18 @@ import 	time
 
 # Add import paths
 # This lets modules access common files.
-sys.path.append(os.path.abspath(os.path.join('.', 'common')))
+#sys.path.append(os.path.abspath(os.path.join('.', 'common')))
 
-from 	ini	import	iMan
+from 	common.ini			import	iMan
 from 	xml.parsers.expat	import	ExpatError
 
 # This file deals with all the XMPP side of things
 # It creates a "Bot" object which deals with taking commands and turning
 # them into xmpp stanzas and sending them, as well as providing functions
 # to override when events occur.
-#
+
 # You are expected to override functions beginning with "ev_"
-#
+
 # The "process" function is also available to be overridden.
 # It is called directly after the jabber client's process function.
 
@@ -128,14 +128,13 @@ class Bot(object):
 			try:
 				#Montior day changes and changes in log location.
 				log_path = os.path.join(
-					'.', iMan.config.system.logpath,
+					'.', iMan.config.system.logpath or 'logs/kong',
 					self.module
 				)
 				if not os.path.isdir(log_path):
 					os.mkdir(log_path)
 					print "ALERT: The dir doesn't exist, making (%s)" % log_path
-				global logf
-				logf = file(os.path.join(log_path,
+				self.logf = file(os.path.join(log_path,
 					time.strftime(iMan.config.system.logformat) + '.log'
 				), "a+")
 
@@ -151,24 +150,27 @@ class Bot(object):
 				self.processTimers()
 
 				#print self.client.Process(1)
-				self.client.Process(0.5)
+				self.client.Process(0.25)
 				self.process()
 			except KeyboardInterrupt, e:
 				self.stop()
 				sys.exit(0)
 				break
 			except AttributeError, e:
-				traceback.print_stack()
-				print "AttributeError:", e
-				self.stop()
-				self.reconnect()
-				self.run()
+				traceback.print_exc()
+				try:
+					self.stop()
+					self.reconnect()
+					self.run()
+				except:
+					traceback.print_exc()
 			except IOError, e:
-				traceback.print_stack()
-				print "IOError:", e
-				self.stop()
-				self.reconnect()
-				self.run()
+				if e == 'Disconnected from server.':
+					self.stop()
+					self.reconnect()
+					self.run()
+				else:
+					traceback.print_exc()
 			except ExpatError, e:
 				continue
 			except:
@@ -183,17 +185,21 @@ class Bot(object):
 		This function can be replaced if needed.
 
 		"""
+		old_timers = []
 		for event in self.timers:
 			t = self.timers[event]
-			if time.time() - t['last_run'] > t['delay'] and t['repeat'] != 0:
+			if time.time() - t['last_run'] > t['delay']:# and t['repeat'] != 0:
 				t['last_run'] = time.time()
 				event(*t['args'])
+				# Delete any finished timers.
+				if t['repeat'] == 0:
+					old_timers.append(event)
 				# Deincriment time repeats.
-				if t['repeat'] > 0:
+				elif t['repeat'] > 0:
 					t['repeat'] -= 1
-					# Delete any finished timers.
-					if t['repeat'] == 0:
-						del self.timers[event]
+
+		for event in old_timers:
+			del self.timers[event]
 
 	def process(self):
 		"""process() -> None
@@ -203,10 +209,11 @@ class Bot(object):
 		"""
 		pass
 
-	def reconnect(self):
-		"""reconnect() -> None
+	def reconnect(self, tries=5):
+		"""reconnect(tries=5) -> None
 
 		Allow each module to define reconnect sequences.
+		By default, the reconnect function handles all retry attempts.
 
 		"""
 		pass
@@ -229,9 +236,10 @@ class Bot(object):
 		self.running = False
 		self.logf.close()
 
-	def addTimer(self, delay, event, repeat=-1, type="minutes", args=[]):
+	def addTimer(self, delay, event, repeat=-1, type="minutes",
+				 run_now=False, args=[]):
 		"""addTimer(int delay, callable event, repeat=-1,
-					type='minutes', args=[]) -> None
+					type='minutes', run_now=False args=[]) -> None
 
 		Add an event to run at a set number of minutes.
 		'args' are any extra arguments to be passed to the event.
@@ -244,7 +252,7 @@ class Bot(object):
 			delay = delay * 60
 		self.timers[event] = {
 				'delay'		:	delay,
-				'last_run'	:	0,
+				'last_run'	:	run_now and 1 or time.time(),
 				'repeat'	:	repeat,
 				'args'		:	args
 			}
@@ -383,7 +391,7 @@ class Bot(object):
 					to=to,status=msg,show='xa'))
 
 # Message related events
-	def ev_msg(self, user, text):
+	def ev_msg(self, user, text, raw_msg):
 		"Override me: Called with new messages"
 		pass
 
@@ -452,7 +460,7 @@ class Bot(object):
 
 		#Prevents "NoneTypes" from causing errors.
 		if text is not None:
-			self.ev_msg(user, text)
+			self.ev_msg(user, text, raw_msg=mess)
 
 	def _presencecb(self, conn, pres):
 		presTypes1={

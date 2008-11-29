@@ -1,16 +1,31 @@
-"""
-|===== Conference Bot Plugin ==================================================
-|= Information Commands
-|===== By: ====================================================================
-|= Patrick Kennedy
-|===== Current Version: =======================================================
-|= 1.0
-|===== Description: ===========================================================
-|= Various commands designed to display information about the bot.
-|===== Additional Comments: ===================================================
-|=
-|==============================================================================
-"""
+#!/usr/bin/env python
+#
+#  PyGab - Python Jabber Framework
+#  Copyright (c) 2008, Patrick Kennedy
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#
+#  - Redistributions of source code must retain the above copyright
+#  notice, this list of conditions and the following disclaimer.
+#
+#  - Redistributions in binary form must reproduce the above copyright
+#  notice, this list of conditions and the following disclaimer in the
+#  documentation and/or other materials provided with the distribution.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#  A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
+#  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+#  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+#  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+#  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+#  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+#  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import	argparse
 import	os
@@ -18,17 +33,17 @@ import	shlex
 import	sys
 import	time
 
-import	const
-
 from	datetime	import	datetime
-from	ini			import	*
-from	utils		import	*
-module = get_module()
-exec(get_import(mod=module, from_=['utils']))
-try:
-	exec(get_import(mod=module, from_=['mounts'], import_=['CommandMount']))
-except ImportError, e:
-	print e
+
+from	common			import argparse, const, mounts, utils
+from	common.ini		import	iMan
+#from	common.utils	import	*
+#module = get_module()
+#exec(get_import(mod=module, from_=['utils']))
+#try:
+#	exec(get_import(mod=module, from_=['mounts'], import_=['CommandMount']))
+#except ImportError, e:
+#	print e
 
 class LoadParser(object):
 	rank = const.RANK_ADMIN
@@ -57,7 +72,7 @@ class LoadParser(object):
 	)
 
 
-class Reload(CommandMount, LoadParser):
+class Reload(mounts.CommandMount, LoadParser):
 	name = 'reload'
 
 	__doc__ = """Reload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
@@ -74,7 +89,7 @@ class Reload(CommandMount, LoadParser):
 		return self.cmd_reload(user, options)
 
 	def __exit__(self, *args):
-		CommandMount.remove(self.__class__)
+		mounts.CommandMount.remove(self.__class__)
 
 	def cmd_reload(self, user, options):
 		if options.extra:
@@ -119,7 +134,7 @@ class Reload(CommandMount, LoadParser):
 				loaded.append("None to be refreshed.")
 			self.parent.sendto(user, "Plugins reloaded: " + " ".join(loaded))
 
-class Load(CommandMount, LoadParser):
+class Load(mounts.CommandMount, LoadParser):
 	name = 'load'
 
 	__doc__ = """Load parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
@@ -129,7 +144,7 @@ class Load(CommandMount, LoadParser):
 		self.parent = parent
 
 	def __exit__(self, *args):
-		CommandMount.remove(self.__class__)
+		mounts.CommandMount.remove(self.__class__)
 
 	def run(self, user, args):
 		args = shlex.split(args.lower())
@@ -173,7 +188,7 @@ class Load(CommandMount, LoadParser):
 					traceback.print_exc()
 					self.parent.error(user, 'There was an error importing the plugin. A report has been logged.')
 
-class Unload(CommandMount, LoadParser):
+class Unload(mounts.CommandMount, LoadParser):
 	name = 'unload'
 
 	__doc__ = """Unload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
@@ -188,7 +203,7 @@ class Unload(CommandMount, LoadParser):
 		return self.cmd_unload(user, options)
 
 	def __exit__(self, *args):
-		CommandMount.remove(self.__class__)
+		mounts.CommandMount.remove(self.__class__)
 
 	def cmd_unload(self, user, options):
 		if options.extra:

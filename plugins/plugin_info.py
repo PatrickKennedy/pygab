@@ -1,31 +1,45 @@
-"""
-|===== Conference Bot Plugin ============
-|= Information Commands
-|===== By: ==============================
-|= Patrick Kennedy
-|===== Current Version: =================
-|= 1.0
-|===== Description: =========================================
-|= Various commands designed to display information about the bot.
-|===== Additional Comments: =================================
-|=
-|============================================================"""
+#!/usr/bin/env python
+#
+#  PyGab - Python Jabber Framework
+#  Copyright (c) 2008, Patrick Kennedy
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#
+#  - Redistributions of source code must retain the above copyright
+#  notice, this list of conditions and the following disclaimer.
+#
+#  - Redistributions in binary form must reproduce the above copyright
+#  notice, this list of conditions and the following disclaimer in the
+#  documentation and/or other materials provided with the distribution.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#  A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
+#  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+#  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+#  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+#  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+#  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+#  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import	argparse
 import	shlex
 
-import	const
+from	common			import argparse, const, mounts, utils
+from	common.ini		import iMan
+#from	common.utils	import	*
+#module = get_module()
+#exec(get_import(mod=module, from_=['utils']))
+#try:
+#	exec(get_import(mod=module, from_=['mounts'], import_=['CommandMount']))
+#except ImportError, e:
+#	print e
 
-from	ini		import	iMan
-from	utils	import	*
-module = get_module()
-exec(get_import(mod=module, from_=['utils']))
-try:
-	exec(get_import(mod=module, from_=['mounts'], import_=['CommandMount']))
-except ImportError, e:
-	print e
-
-class Help(CommandMount):
+class Help(utils.CommandMount):
 	name = 'help'
 	rank = const.RANK_USER
 	file = __file__
@@ -43,16 +57,17 @@ class Help(CommandMount):
 		self.parent = parent
 
 	def __exit__(self):
-		CommandMount.remove(self.__class__)
+		mounts.CommandMount.remove(self.__class__)
 
 	def run(self, user, args):
 		options = self.help_parser.parse_args(shlex.split(args))
 		self.cmd_help(user, options)
 
 	def cmd_help(self, user, args):
+		# Display the help message of a passed command
 		if args.cmd:
-			if args.cmd in CommandMount.plugins:
-				self.parent.sendto(user, CommandMount.plugins[args.cmd].__doc__)
+			if args.cmd in mounts.CommandMount.plugins.keys():
+				self.parent.sendto(user, mounts.CommandMount.plugins[args.cmd].__doc__)
 			else:
 				self.parent.error(user, "I don't know that command (%s). \
 					Please check your spelling." % args.cmd)
@@ -64,16 +79,16 @@ class Help(CommandMount):
 		user_cmd_list = []
 		mod_cmd_list = []
 		admin_cmd_list = []
-		for cmd in CommandMount.plugins.itervalues():
+		for cmd in mounts.CommandMount.plugins.itervalues():
 			# Skip commands if a user doesn't match the command's rank.
 			#if cmd.rank == CommandMount.RANK_USER:
 
-			if cmd.rank == CommandMount.RANK_MOD:
-				if has_rank(user, 'mod') or has_rank(user, 'admin'):
+			if cmd.rank == const.RANK_MOD:
+				if utils.ismod(user) or utils.isadmin(user):
 					mod_cmd_list.append(cmd)
 
-			elif cmd.rank == CommandMount.RANK_ADMIN:
-				if has_rank(user, 'admin'):
+			elif cmd.rank == const.RANK_ADMIN:
+				if utils.isadmin(user):
 					admin_cmd_list.append(cmd)
 
 			else:
@@ -103,7 +118,7 @@ class Help(CommandMount):
 		self.parent.sendto(user,reply)
 
 
-class Names(CommandMount):
+class Names():#CommandMount):
 	name = 'w'
 	rank = const.RANK_USER
 	file = __file__
