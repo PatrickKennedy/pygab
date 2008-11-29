@@ -28,10 +28,22 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Ranks
+# Basic rank constants.
 RANK_USER	= 'user'
 RANK_MOD 	= 'mod'
 RANK_ADMIN	= 'admin'
 RANK_BANNED	= 'banned'
+
+# Timer Delay Types
+SECONDS = 'sec'
+MINUTES = 'min'
+HOURS 	= 'hour'
+
+# Hook Attributes
+# Passed to indicate an attribute simply needs to be defined to be accepted.
+ATTR_DEFINED = 'def'
+# Requires a specific attribute to NOT be defined.
+ATTR_UNDEFINED = 'undef'
 
 # Hook Locations
 # ev_msg passes the sender and the sent message as a string.
