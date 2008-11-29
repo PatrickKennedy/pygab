@@ -23,21 +23,41 @@
 		'''
 
 		if not attrs:
-			return [p for p in self.plugins]
+			return [p for p in self.plugins.itervalues()]
 
 		plugins = []
-		for p in self.plugins:
+		for p in self.plugins.itervalues():
 			# flag is set to False if an attribute doesn't match.
 			flag = True
 			for attr, value in attrs.items():
-				if value == True:
-					if not hasattr(p, attr):
-						flag = False
-				else:
+				# Unless we're looking to see if the attribute isn't there
+				# all instances of a missing attribute imediately fail the
+				# plugin.
+				if not hasattr(p, attr):
+					if value is not False:
+						break
+
+				# If we're just looking to see if the attribute is defined
+				# then this imediately succeeds.
+				if value is True:
+					continue
+
+				attr_value = getattr(p, attr, [])
+				# If the passed value is an iterator then attempting an 'in'
+				# check would yeild nasty errors.
+				if not hasattr(value, '__iter__') and hasattr(attr_value, '__contains__'):
 					if value not in getattr(p, attr, []):
 						flag = False
+						break
+
+				# At the end of the day we may just want to check for equality
+				elif value != attr_value:
+					flag = False
+					break
+
 			if flag:
 				plugins.append(p)
+
 		return plugins
 
 
