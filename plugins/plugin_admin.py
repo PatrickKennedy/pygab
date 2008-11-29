@@ -31,10 +31,15 @@ except ImportError, e:
 	print e
 
 class LoadParser(object):
-	rank = const.RANK_USER
+	rank = const.RANK_ADMIN
 	file = __file__
 
 	load_parser = argparse.ArgumentParser(prog='!(re|un)load', add_help=False)
+	load_parser.add_argument(
+		'extra',
+		default=False, nargs='?',
+		metavar='command', help='Start, stop, restart'
+	)
 	load_parser.add_argument(
 		'-a', '--all',
 		action='store_true',
@@ -42,7 +47,7 @@ class LoadParser(object):
 	)
 	load_parser.add_argument(
 		'-p', '--plugin',
-		const=True, default=False,nargs='?',
+		const=True, default=False, nargs='?',
 		metavar='plugin_name', help='(re|un)load plugins'
 	)
 	load_parser.add_argument(
@@ -72,7 +77,11 @@ class Reload(CommandMount, LoadParser):
 		CommandMount.remove(self.__class__)
 
 	def cmd_reload(self, user, options):
-		if options.ini == True:
+		if options.extra:
+			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
+			return
+
+		if options.ini is True:
 			iMan.readall()
 			self.parent.sendto(user, 'I have read all ini\'s')
 		elif options.ini:
@@ -81,7 +90,7 @@ class Reload(CommandMount, LoadParser):
 
 		loaded = []
 		plugins_to_load = []
-		if options.plugin == True:
+		if options.plugin is True:
 			plugins_to_load = iMan.config.system.plugins
 		elif options.plugin:
 			plugins_to_load.append(options.plugin)
@@ -129,8 +138,11 @@ class Load(CommandMount, LoadParser):
 		return self.cmd_load(user, options)
 
 	def cmd_load(self, user, options):
+		if options.extra:
+			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
+			return
 
-		if options.ini == True:
+		if options.ini is True:
 			self.parent.error(user, "You must pass the name of an ini to load.")
 		elif options.ini:
 			if iMan.load(options.ini):
@@ -138,7 +150,7 @@ class Load(CommandMount, LoadParser):
 			else:
 				self.parent.sendto(user, 'I can\'t load the ini (%s)' % options.ini)
 
-		if options.plugin == True:
+		if options.plugin is True:
 			self.parent.error(user, "You must pass the name of a plugin to load.")
 		elif options.plugin:
 			if options.plugin in self.parent._pluginhash:
@@ -179,19 +191,22 @@ class Unload(CommandMount, LoadParser):
 		CommandMount.remove(self.__class__)
 
 	def cmd_unload(self, user, options):
+		if options.extra:
+			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
+			return
 
-		if options.ini == True:
-			self.error(user, "You must pass the name of an ini to unload.")
+		if options.ini is True:
+			self.parent.error(user, "You must pass the name of an ini to unload.")
 		elif options.ini:
 			if iMan.unload(options.ini):
-				self.sendto(user, 'I have successfully unloaded the ini (%s)' % options.ini)
+				self.parent.sendto(user, 'I have successfully unloaded the ini (%s)' % options.ini)
 			else:
-				self.sendto(user, 'I can\'t unload the ini (%s)' % options.ini)
+				self.parent.sendto(user, 'I can\'t unload the ini (%s)' % options.ini)
 
 
-		if options.plugin == True:
-			self.error(user, "You must pass the name of a plugin to unload.")
-		if options.plugin:
+		if options.plugin is True:
+			self.parent.error(user, "You must pass the name of a plugin to unload.")
+		elif options.plugin:
 			name = options.plugin
 			if name not in self.parent._pluginhash:
 				self.parent.error(user, "Plugin (%s) hasn't been loaded or was spelled wrong." % name)
