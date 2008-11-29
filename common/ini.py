@@ -90,6 +90,8 @@ class IniManager(object):
 		Return True if 'name'.ini loaded properly.
 
 		'''
+		if self.loaded(name):
+			return True
 		name = name.lower()
 		path = [curdir]
 		path.extend(subfolders)
