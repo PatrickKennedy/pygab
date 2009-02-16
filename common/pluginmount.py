@@ -64,6 +64,8 @@
 				yield p
 
 	def append(self, cls):
+		if cls.name in self.plugins:
+			print "WARNING: The Plugin Class %s Has been Overwritten" % cls.name
 		self.plugins[cls.name] = cls
 
 	def remove(self, cls):
