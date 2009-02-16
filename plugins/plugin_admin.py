@@ -170,14 +170,14 @@ class Reload(mounts.CommandMount, LoadParser):
 			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
 			return
 
-		if options.ini is True:
+		if options.ini is True or options.all:
 			iMan.readall()
 			self.parent.sendto(user, 'I have read all ini\'s')
 		elif options.ini:
 			iMan[options.ini].read()
 			self.parent.sendto(user, 'I have read the ini (%s)' % options.ini)
 
-		if options.plugin is True:
+		if options.plugin is True or options.all:
 			plugins_to_load = self.parent._pluginhash.keys()
 			if False:
 				plugins_to_load = iMan.config.system.plugins
