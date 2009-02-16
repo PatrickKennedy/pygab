@@ -102,15 +102,21 @@ class IniManager(object):
 		'''
 		self.temp_path = (curdir, temp_path)
 
-	def __get__(self, name):
-		'''__get__(str name) -> bool
+	def __contains__(self, name):
+		'''__contains__(str name) -> bool
 
 		Return True if 'name'.ini is loaded.
+		ex. 'roster' in iMan
 
 		'''
-		assert isinstance(name, basestring), 'Recived a %s typed variable' % type(name)
 
-		return self.__dict__.has_key(name.lower())
+		return self.__dict__.__contains__(name.lower())
+
+	def __getitem__(self, item):
+		return self.__dict__.__getitem__(item)
+
+	def __delitem__(self, item):
+		return self.__dict__.__delitem__(item)
 
 	def load(self, name, *subfolders):
 		'''load_ini(str name, *subfolders) -> Bool
@@ -142,7 +148,7 @@ class IniManager(object):
 		Return True if 'name'.ini is loaded.
 
 		'''
-		return self.__get__(name)
+		return self.__contains__(name)
 
 	def unload(self, name, save=False):
 		'''unload(str name, bool save=False) -> bool

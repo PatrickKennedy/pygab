@@ -1,4 +1,4 @@
-from pluginmount import PluginMount
+from common.pluginmount import PluginMount
 
 __all__ = ['PluginInitializers' ,'CommandMount', 'HookMount']
 
@@ -30,6 +30,10 @@ class PluginInitializers:
 	"""
 	__metaclass__ = PluginMount
 
+	def __init__(self, parent):
+		self.parent = parent
+		self.plugins[self.name] = self
+
 
 class CommandMount:
 	"""
@@ -51,8 +55,10 @@ class CommandMount:
 
 	=========  =================================================================
 	__init__   This function gets passed an instance of the bot.
+				- Predefined to define self.parent as the instance of the bot.
 
 	__exit__   No arguments are passed to this function.
+				- Predefined to remove the class from the registry.
 
 	   run     run gets passed two arguments:
 	            - a JID object of the user calling the command
@@ -64,10 +70,40 @@ class CommandMount:
 	"""
 	__metaclass__ = PluginMount
 
-	# A list of constants for user ranks.
-	RANK_USER	= 'user'
-	RANK_MOD	= 'moderator'
-	RANK_ADMIN	= 'admin'
+	def __init__(self, parent):
+		self.parent = parent
+
+		# Initalize the plugin's thread
+		self.init_thread()
+		self.plugins[self.name] = self
+
+	def init_thread(self):
+		self._thread = self.thread()
+		self._thread.send(None)
+
+	def process(self, user, msg, whisper=False):
+		try:
+			self._thread.send((user, msg, whisper))
+		except StopIteration:
+			self.init_thread()
+		except GeneratorExit:
+			CommandMount.remove(self)
+
+	@staticmethod
+	def thread_base(fn):
+		def thread(self):
+			while 1:
+				try: args = (yield)
+				except GeneratorExit: raise
+
+				if args is None: continue
+				user, args, whisper = args
+				fn(self, user, args, whisper)
+		return thread
+
+	def __exit__(self, *args):
+		self._thread.close()
+		CommandMount.remove(self)
 
 class HookMount:
 	"""
@@ -86,7 +122,9 @@ class HookMount:
 
 	file      The absolute path to a file. You are able to use __file__.
 
-	persist   When defined the hook will be run each time a location is called.
+	priority  Hooks are processed in decending order based on their priority.
+	          Priorities are defined in /common/const.py.
+			  The default priorities are Critical, Persistant, and Normal
 
 	========  =================================================================
 
@@ -95,13 +133,70 @@ class HookMount:
 
 	=========  =================================================================
 	__init__   This function gets passed an instance of the bot.
+				- Predefined to define self.parent as the instance of the bot,
+				  self.whispered as a boolean, and replace self.thread with an
+				  initalized version of itself.
 
 	__exit__   No arguments are passed to this function.
+				- Predefined to remove the class from the registry.
 
-	   run     The number of arguments passed to run vary per location.
-	            Hook locations should document what they pass.
+	 process   The number of arguments passed to run vary per location.
+	           Hook locations should document what they pass.
+			    - Predefined to send two arguments to the thread.
+
+	 thread    The hook's generator which acts as a thread. It will be initalized
+	           when the class is initalized and passed new variables via send().
+	           Reference: http://www.ibm.com/developerworks/linux/library/l-pythrd.html
 
 	=========  =================================================================
 
 	"""
+
 	__metaclass__ = PluginMount
+
+	def __init__(self, parent):
+		self.parent = parent
+
+		# Initalize the plugin's thread
+		self.init_thread()
+		self.plugins[self.name] = self
+
+	def init_thread(self):
+		self._thread = self.thread()
+		self._thread.send(None)
+
+	@staticmethod
+	def sort(iter):
+		"""Sort decending by each item's priority attribute."""
+		iter.sort(lambda x,y: cmp(x.priority, y.priority), reverse=True)
+		return iter
+
+	def process(self, user, msg):
+		try:
+			self._thread.send((user, msg))
+		except StopIteration:
+			self.init_thread()
+		except GeneratorExit:
+			CommandMount.remove(self)
+
+	@staticmethod
+	def thread_base(fn):
+		def thread(self):
+			result = None
+			while 1:
+				try: args = (yield result)
+				except GeneratorExit: raise
+
+				if args is None:
+					result = None
+					continue
+				user, args = args
+				result = False
+
+				result = fn(self, user, args)
+		return thread
+
+
+	def __exit__(self, *args):
+		self._thread.close()
+		HookMount.remove(self)

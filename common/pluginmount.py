@@ -10,7 +10,11 @@
 			# This must be a plugin implementation, which should be registered.
 			# Simply appending it to the list is all that's needed to keep
 			# track of it later.
-			cls.plugins[cls.name] = cls
+			cls.append(cls)
+
+	@staticmethod
+	def sort(iter):
+		return iter
 
 	def get_plugin_list(self, **attrs):
 		'''get_plugin_list(str **attr) -> list
@@ -23,10 +27,11 @@
 		'''
 
 		if not attrs:
-			return [p for p in self.plugins.itervalues()]
+			for p in self.sort(self.plugins.values()):
+				yield p
 
 		plugins = []
-		for p in self.plugins.itervalues():
+		for p in self.sort(self.plugins.values()):
 			# flag is set to False if an attribute doesn't match.
 			flag = True
 			for attr, value in attrs.items():
@@ -35,7 +40,7 @@
 				# plugin.
 				if not hasattr(p, attr):
 					if value is not False:
-						break
+						continue
 
 				# If we're just looking to see if the attribute is defined
 				# then this imediately succeeds.
@@ -46,7 +51,7 @@
 				# If the passed value is an iterator then attempting an 'in'
 				# check would yeild nasty errors.
 				if not hasattr(value, '__iter__') and hasattr(attr_value, '__contains__'):
-					if value not in getattr(p, attr, []):
+					if value not in attr_value:
 						flag = False
 						break
 
@@ -56,10 +61,7 @@
 					break
 
 			if flag:
-				plugins.append(p)
-
-		return plugins
-
+				yield p
 
 	def append(self, cls):
 		self.plugins[cls.name] = cls

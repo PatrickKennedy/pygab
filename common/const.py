@@ -27,6 +27,12 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Custom Exceptions
+class ConnectError(Exception): pass
+class AuthError(Exception): pass
+class CommandHelp(Exception): pass
+class CommandError(Exception): pass
+
 # Ranks
 # Basic rank constants.
 RANK_USER	= 'user'
@@ -44,6 +50,10 @@ HOURS 	= 'hour'
 ATTR_DEFINED = 'def'
 # Requires a specific attribute to NOT be defined.
 ATTR_UNDEFINED = 'undef'
+
+PRIORITY_CRITICAL = 10
+PRIORITY_PERSISTANT = 5
+PRIORITY_NORMAL = 0
 
 # Hook Locations
 # ev_msg passes the sender and the sent message as a string.

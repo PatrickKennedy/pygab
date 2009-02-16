@@ -37,7 +37,9 @@ import 	time
 # This lets modules access common files.
 #sys.path.append(os.path.abspath(os.path.join('.', 'common')))
 
+from 	common				import	const
 from 	common.ini			import	iMan
+from 	common.weightless_timers import NamedThreadPool
 from 	xml.parsers.expat	import	ExpatError
 
 # This file deals with all the XMPP side of things
@@ -61,11 +63,17 @@ def _promote_jid(jid):
 		return jid
 	return xmpp.protocol.JID(jid=jid)
 
-# Custom Exceptions
-class ConnectError(Exception): pass
-class AuthError(Exception): pass
+class BotFramework(object):
 
-class Bot(object):
+	@property
+	def active_user(self):
+		"""self.active_user -> JID
+
+		Return the JID of the user who the bot last recieved a stanza from.
+
+		"""
+		return self.last_stanza.getFrom()
+
 	def __init__(self, username, password, domain="gmail.com"):
 
 		# Add import paths
@@ -73,7 +81,7 @@ class Bot(object):
 
 		self.jid = xmpp.protocol.JID("%s@%s" % (username,domain))
 		self.password = password
-		self.timers = {}
+		self.timers = NamedThreadPool()
 
 # Things to do
 	def connect(self, server=(), proxy={}, use_srv=False, secure=None, resource=''):
@@ -98,7 +106,7 @@ class Bot(object):
 		else:
 			conres = self.client.connect()
 		if not conres:
-			raise ConnectError(server)
+			raise const.ConnectError(server)
 		if conres != 'tls':
 			print "Warning: Unable to estabilish secure connection - TLS failed!"
 
@@ -109,7 +117,7 @@ class Bot(object):
 
 		authres = self.client.auth(self.jid.getNode(), self.password, resource)
 		if not authres:
-			raise AuthError(server)
+			raise const.AuthError(server)
 		if authres != 'sasl':
 			print "Warning: Unable to perform SASL auth os %s:%s. Old authentication method used!" % server
 
@@ -185,21 +193,11 @@ class Bot(object):
 		This function can be replaced if needed.
 
 		"""
-		old_timers = []
 		for event in self.timers:
-			t = self.timers[event]
-			if time.time() - t['last_run'] > t['delay']:# and t['repeat'] != 0:
-				t['last_run'] = time.time()
-				event(*t['args'])
-				# Delete any finished timers.
-				if t['repeat'] == 0:
-					old_timers.append(event)
-				# Deincriment time repeats.
-				elif t['repeat'] > 0:
-					t['repeat'] -= 1
-
-		for event in old_timers:
-			del self.timers[event]
+			try:
+				event.next()
+			except (GeneratorExit, StopIteration):
+				self.timers.remove_by_obj(event)
 
 	def process(self):
 		"""process() -> None
@@ -245,17 +243,34 @@ class Bot(object):
 		'args' are any extra arguments to be passed to the event.
 
 		"""
-
 		if type.lower() == "hours":
 			delay = delay * 60 * 60
 		elif type.lower() == "minutes":
 			delay = delay * 60
-		self.timers[event] = {
-				'delay'		:	delay,
-				'last_run'	:	run_now and 1 or time.time(),
-				'repeat'	:	repeat,
-				'args'		:	args
-			}
+
+		def timer():
+			"""Run the event after a period of time has passed."""
+
+			delay_ = delay
+			last_run = run_now and 1 or time.time()
+			repeat_ = repeat
+			event_ = event
+			args_ = args
+
+			while 1:
+				if time.time() - last_run >= delay_:
+					event_(*args)
+					last_run = time.time()
+					if repeat_ == 0:
+						break
+					elif repeat_ > 0:
+						repeat_ -= 1
+				yield
+
+		timer.__name__ = event.__name__
+		timer.__doc__ = event.__doc__
+
+		self.timers.append(timer)
 
 	def removeTimer(self, timer_name):
 		"""removeTimer(str timer_name) -> None
@@ -263,12 +278,7 @@ class Bot(object):
 		Delete an event's timer instance.
 
 		"""
-		try:
-			for timer in self.timers:
-				if timer.__name__ in timer_name:
-					del self.timers[timer]
-		except:
-			pass
+		self.timers.remove(timer_name)
 
 # Messages to send
 	def msg(self, jid, message):
@@ -457,6 +467,7 @@ class Bot(object):
 
 		text = mess.getBody()
 		user = mess.getFrom()
+		self.last_stanza = mess
 
 		#Prevents "NoneTypes" from causing errors.
 		if text is not None:
@@ -480,6 +491,8 @@ class Bot(object):
 		}
 
 		user = pres.getFrom()
+		self._last_stanza = pres
+
 		if pres.getType() == "error":
 			print pres
 
@@ -514,6 +527,7 @@ class Bot(object):
 
 	def _iqcb(self, conn, iq):
 		#print iq
+		self._last_stanza = iq
 		self.ev_iq(iq.getFrom(), iq)
 
 if __name__ == '__main__':

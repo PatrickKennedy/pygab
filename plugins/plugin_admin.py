@@ -27,6 +27,9 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import with_statement
+
+
 import	argparse
 import	os
 import	shlex
@@ -44,6 +47,88 @@ from	common.ini		import	iMan
 #	exec(get_import(mod=module, from_=['mounts'], import_=['CommandMount']))
 #except ImportError, e:
 #	print e
+
+class Mimic(mounts.CommandMount):
+	name = 'mimic'
+	rank = const.RANK_USER
+	file = __file__
+
+	@mounts.CommandMount.thread_base
+	def thread(self, user, args, whisper):
+		self.parent.sendto(user, args)
+
+class RawMsg(mounts.CommandMount):
+	name = 'raw'
+	rank = const.RANK_ADMIN
+	file = __file__
+
+	@mounts.CommandMount.thread_base
+	def thread(self, user, args, whisper):
+		self.parent.sendtoall(args)
+
+class HookBlockUser(mounts.HookMount):
+	name = 'block'
+	loc = [const.LOC_EV_MSG]
+	file = __file__
+	priority = const.PRIORITY_CRITICAL
+
+	@mounts.HookMount.thread_base
+	def thread(self, user, args):
+		if iMan.loaded('roster') and iMan.roster[utils.getname(user).lower()].blocked:
+			return True
+
+class BlockUser(mounts.CommandMount):
+	name = 'block'
+	rank = const.RANK_ADMIN
+	file = __file__
+
+	__doc__ = "Make the bot ignore imput from the user. \n Usage: !block <username>"
+
+	@mounts.CommandMount.thread_base
+	def thread(self, user, args, whisper):
+		if not iMan.loaded('roster'):
+			self.parent.sendto(user, "The roster isn't loaded. I am unable to block users")
+			return
+
+		unix_target = target.lower()
+		if iMan.roster.has_key(unix_target):
+			if iMan.roster[unix_target].has_key('blocked'):
+				self.parent.sendto(user, "%s is already blocked." % target)
+				return
+			else:
+				iMan.roster[unix_target].blocked = True
+				self.parent.sendto(user, "I am no longer accepting input from %s." % target)
+				return
+		else:
+			iMan.roster[unix_target].blocked = True
+			self.parent.sendto(user, "I am no longer accepting input from %s. NOTE: I don't know who that is." % target)
+			return
+
+class UnblockUser(mounts.CommandMount):
+	name = 'unblock'
+	rank = const.RANK_ADMIN
+	file = __file__
+
+	__doc__ = "Allow the user to interact with the bot. \n Usage: !unblock <username>"
+
+	@mounts.CommandMount.thread_base
+	def thread(self, user, args, whisper):
+		if not iMan.loaded('roster'):
+			self.parent.sendto(user, "The roster isn't loaded. I am unable to unblock users")
+			return
+
+		unix_target = target.lower()
+		if iMan.roster.has_key(unix_target):
+			if not iMan.roster[unix_target].has_key('blocked'):
+				self.parent.sendto(user, "%s is not blocked." % target)
+				return
+			else:
+				iMan.roster[unix_target].blocked = False
+				self.parent.sendto(user, "I am now accepting input from %s." % target)
+				return
+		else:
+			self.parent.sendto(user, "I don't know who %s is, therefore they cannot have been blocked." % target)
+			return
 
 class LoadParser(object):
 	rank = const.RANK_ADMIN
@@ -77,21 +162,10 @@ class Reload(mounts.CommandMount, LoadParser):
 
 	__doc__ = """Reload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
-	def __init__(self, parent):
-		self.parent = parent
+	@mounts.CommandMount.thread_base
+	def thread(self, user, args, whisper):
+		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
-	def run(self, user, args):
-		print "Reload args: %s" % args
-		args = shlex.split(args.lower())
-		print "Reload args: %s" % args
-		options = self.load_parser.parse_args(args)
-
-		return self.cmd_reload(user, options)
-
-	def __exit__(self, *args):
-		mounts.CommandMount.remove(self.__class__)
-
-	def cmd_reload(self, user, options):
 		if options.extra:
 			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
 			return
@@ -103,56 +177,32 @@ class Reload(mounts.CommandMount, LoadParser):
 			iMan[options.ini].read()
 			self.parent.sendto(user, 'I have read the ini (%s)' % options.ini)
 
-		loaded = []
-		plugins_to_load = []
 		if options.plugin is True:
-			plugins_to_load = iMan.config.system.plugins
+			plugins_to_load = self.parent._pluginhash.keys()
+			if False:
+				plugins_to_load = iMan.config.system.plugins
+				if isinstance(plugins_to_load, basestring):
+					plugins_to_load = plugins_to_load.split(' ')
 		elif options.plugin:
-			plugins_to_load.append(options.plugin)
+			plugins_to_load = [options.plugin]
 
-		for i in plugins_to_load:
-			try:
-				plug_path = self.parent.get_plugin_path(i)
-				#self.parent.unload_plugin(plug_path)
-				if self.parent.load_plugin(i, plug_path):
-					loaded.append(i)
-
-			except IOError:
-				self.parent.error(user, 'The plugin "plugin_%s.py" could not be found.' % i)
-				continue
-
-			except:
-				pluglog = file(os.path.join("errors","PluginError.log"), "a+")
-				traceback.print_exc()
-				print >>pluglog, "\n Plugin error log for: ", i
-				traceback.print_exc(None, pluglog)
-				self.parent.error(user, 'There was an error importing the plugin. A report has been logged.')
-				continue
+		loaded = self.parent.load_plugins(plugins_to_load)
 
 		if options.plugin:
 			if not loaded:
-				loaded.append("None to be refreshed.")
-			self.parent.sendto(user, "Plugins reloaded: " + " ".join(loaded))
+				self.parent.sendto(user, "No plugins required reloading.")
+			else:
+				self.parent.sendto(user, "Plugins reloaded: %s" % ", ".join(loaded))
 
 class Load(mounts.CommandMount, LoadParser):
 	name = 'load'
 
 	__doc__ = """Load parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
+	@mounts.CommandMount.thread_base
+	def thread(self, user, args, whisper):
+		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
-	def __init__(self, parent):
-		self.parent = parent
-
-	def __exit__(self, *args):
-		mounts.CommandMount.remove(self.__class__)
-
-	def run(self, user, args):
-		args = shlex.split(args.lower())
-		options = self.load_parser.parse_args(args)
-
-		return self.cmd_load(user, options)
-
-	def cmd_load(self, user, options):
 		if options.extra:
 			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
 			return
@@ -168,44 +218,24 @@ class Load(mounts.CommandMount, LoadParser):
 		if options.plugin is True:
 			self.parent.error(user, "You must pass the name of a plugin to load.")
 		elif options.plugin:
-			if options.plugin in self.parent._pluginhash:
-				self.parent.error(user,"This plugin has already been loaded. To update it please use '!reload -p'")
+			loaded = self.parent.load_plugins([options.plugin])
+
+			if not loaded:
+				self.parent.sendto(user, "The %s plugin is already loaded." % options.plugin)
 			else:
-				try:
-					i = options.plugin
-					plug_path = self.parent.get_plugin_path(i)
-					self.parent.load_plugin(i, plug_path)
-					self.parent.sendto(user, "Plugin (%s) sucessfully loaded." % i)
+				self.parent.sendto(user, "Plugins loaded: %s" % ", ".join(loaded))
 
-				except IOError:
-					self.parent.error(user,'The plugin "plugin_%s.py" could not be found.' % i)
 
-				except:
-					pluglog = file(os.path.join("errors","PluginError.log"), "a+")
-					traceback.print_exc(None, pluglog)
-					print >>pluglog, "\n"
-					pluglog.close()
-					traceback.print_exc()
-					self.parent.error(user, 'There was an error importing the plugin. A report has been logged.')
 
 class Unload(mounts.CommandMount, LoadParser):
 	name = 'unload'
 
 	__doc__ = """Unload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
-	def __init__(self, parent):
-		self.parent = parent
+	@mounts.CommandMount.thread_base
+	def thread(self, user, args, whisper):
+		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
-	def run(self, user, args):
-		args = shlex.split(args.lower())
-		options = self.load_parser.parse_args(args)
-
-		return self.cmd_unload(user, options)
-
-	def __exit__(self, *args):
-		mounts.CommandMount.remove(self.__class__)
-
-	def cmd_unload(self, user, options):
 		if options.extra:
 			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
 			return
@@ -222,18 +252,6 @@ class Unload(mounts.CommandMount, LoadParser):
 		if options.plugin is True:
 			self.parent.error(user, "You must pass the name of a plugin to unload.")
 		elif options.plugin:
-			name = options.plugin
-			if name not in self.parent._pluginhash:
-				self.parent.error(user, "Plugin (%s) hasn't been loaded or was spelled wrong." % name)
-				return
-
-			try:
-				plugin_path = self.parent.get_plugin_path(name)
-			except IOError, e:
-				self.parent.error(user, "I have that plugin loaded but I can't find the file to unload it.")
-				return
-
-			self.parent.unload_plugin(plugin_path)
-
-			del self.parent._pluginhash[name]
-			self.parent.sendto(user, "Unloaded plugin (%s)" % name)
+			names = [options.plugin]
+			unloaded = self.parent.unload_plugins(names)
+			self.parent.sendto(user, "Plugins unloaded: %s" % ", ".join(unloaded))

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 #
 #  PyGab - Python Jabber Framework
 #  Copyright (c) 2008, Patrick Kennedy
@@ -35,23 +35,6 @@ import	time
 import	traceback
 import	xmpp
 
-import	bot
-import	const
-
-from	ini 	import	iMan
-from	utils	import	*
-from	gbot	import	*
-
-# We're setting up
-selfpath = sys.argv[0]
-selffile = os.path.split(selfpath)[1]
-MODULE = os.path.splitext(selffile)[0]
-iMan.load('config', MODULE)
-
-# Contains all the server information
-server = iMan.config.server
-
-
 def log(*args):
 	"""Replacement for print, which doesn't deal with unicode well"""
 	global me
@@ -63,23 +46,31 @@ def log(*args):
 	print >> me.logf, msg
 	me.logf.flush()
 
-class ConferenceBot(bot.Bot):
-	def __init__(self):
+from	common		import const, mounts, utils
+from	common.ini 	import iMan
+from	framework	import BotFramework, PluginFramework
+from	gbot		import	*
 
+iMan.load('config', utils.get_module())
+# Contains all the server information
+server = iMan.config.server
+
+class ConferenceBot(BotFramework, PluginFramework):
+	def __init__(self):
 		#Start all the behind the scenes functions.
-		bot.Bot.__init__(self, server.username, server.password, server.domain)
+		BotFramework.__init__(self, server.username, server.password, server.domain)
+		PluginFramework.__init__(self)
 
 		# Load Module specific ini files.
-		self.module = MODULE
+		self.module = utils.get_module()
 
 		# Start timers.
 		self.addTimer(20, iMan.saveall, None, type='seconds')
 
-		#Plugin hashing dictionary
-		self._pluginhash = {}
-		self.pluginpaths = [self.module, '']
-
-		self.load_plugins()
+		plugins_to_load = iMan.config.system.plugins
+		if isinstance(plugins_to_load, basestring):
+			plugins_to_load = plugins_to_load.split(' ')
+		self.load_plugins(plugins_to_load)
 
 	def prep(self, secure=True):
 		try:
@@ -89,162 +80,38 @@ class ConferenceBot(bot.Bot):
 				secure=secure,
 				resource=server.resource
 			)
-		except bot.ConnectError, serv:
+		except const.ConnectError, serv:
 			print "Unable to connect to server. %s:%s" % serv.message
 			sys.exit(1)
-		except bot.AuthError, serv:
+		except const.AuthError, serv:
 			print "Unable to authorize on %s:%s - check login/password." % serv.message
 			sys.exit(1)
 
-	def reconnect(self):
+	def reconnect(self, tries=5):
+		"""reconnect(tries=5) -> bool
+
+		Attempt to reconnect to the server `tries` number of times.
+
+		"""
 		delay = 5
-		debug('connection', 'Attempting to reconnect in %s seconds.' % delay)
+		utils.debug('connection', 'Attempting to reconnect in %s seconds.' % delay)
 		time.sleep(delay)
 		try:
 			self.client.reconnectAndReauth()
+			self.setOnline()
+			return True
 		except AttributeError:
-			debug('connection', 'Failed to reconnect. Making new connection' /
+			utils.debug('connection', 'Failed to reconnect. Making new connection'
 								' in %s seconds.' % delay)
 			time.sleep(delay)
 			self.prep()
+			if tries:
+				return self.reconnect(tries-1)
 
-		self.setOnline()
-
-	def load_plugins(self):
-		confirmdir("errors")
-		pluglog = file(os.path.join('.', 'errors', "PluginError-%s.log" % self.module), "a+")
-		#Load all external plugins and warn the user about missing plugins.
-		for i in iMan.config.system.plugins:
-			try:
-				plug_path = self.get_plugin_path(i)
-				self.load_plugin(i, plug_path)
-			except IOError, e:
-				debug('plugins', 'The plugin "plugin_%s.py" could not be found.' % i)
-				continue
-			except:
-				self.unload_plugin(plug_path)
-				traceback.print_exc()
-				print >>pluglog, "\n Plugin error log for: ", i
-				traceback.print_exc(None, pluglog)
-				debug('plugins', 'There was an error importing the plugin. A report has been logged.')
-				continue
-		pluglog.close()
-
-	def get_plugin_path(self, name):
-		for folder in self.pluginpaths:
-			plug_path = os.path.abspath(os.path.join(
-				'.', folder,
-				'plugins','plugin_%s.py' % name
-			))
-			if os.path.exists(plug_path):
-				return plug_path
-		else:
-			raise IOError
-
-	def load_plugin(self, name, path_):
-		with open(path_, "r") as f:
-			a = f.read()
-		# Skip plugins that haven't been updated.
-		if self._pluginhash.get(name, 0) == hash(a):
-			return False
-
-		# Replicate __file__ in the plugin, since it isn't set by the
-		# interpreter when it executes a string.
-		# We're using __file__ to know what command classes to unload.
-		plugin = {'__file__':path_}
-		exec a in plugin
-		# If the plugin has any initialization to be done, handle that here.
-		handler = PluginInitializers.plugins.get(path_)
-		if handler:
-			handler(self)
-
-		debug('core', "Loading Plugin (%s)" % name)
-		self._pluginhash[name] = hash(a)
-		return True
-
-	def unload_plugin(self, path_):
-		debug('core', "Unloading Plugin (%s)" % path_)
-		initalizer = PluginInitializers.plugins.get(path_)
-		if initalizer:
-			initalizer(self).__exit__()
-
-		for cmd in CommandMount.plugins.values():
-			if cmd.file == path_:
-				cmd(self).__exit__()
-
-		for hook in HookMount.plugins.values():
-			if hook.file == path_:
-				hook(self).__exit__()
+		return False
 
 	def log(self,*args):
 		log(*args)
-
-	def hook(self, loc, *args, **kwargs):
-		'''hook(str, loc, *args, **kwargs) -> bool
-
-		Run all persistent hooks at 'loc' and return False if any non-persistent
-		hooks return True.
-
-		'''
-		# Multiple plugins can register hooks, the first one to
-		# return True causes all further processing of that hook
-		# to be aborted.
-		#print "Running hook. (Loc: %s)" % loc
-		for hook in HookMount.get_plugin_list(loc=loc, persist=True):
-			hook(self).run(*args, **kwargs)
-
-		for hook in HookMount.get_plugin_list(loc=loc, persist=None):
-			#print "Checking hook (%s) located at: %s" % (hook, hook.loc)
-			if hook(self).run(*args, **kwargs):
-				return False
-		return True
-
-	def command(self, user, msg):
-		args = ''
-		if " " in msg:
-			cmd, args = msg.split(" ",1)
-			cmd = cmd.lower()
-		else:
-			cmd = msg.strip().lower()
-		#FIXME: This is a work around for shlex's poor unicode support.
-		args = args.encode(sys.getdefaultencoding(),"replace")
-
-		try:
-			cmd_func = CommandMount.plugins.get(cmd)
-			if not cmd_func:
-				self.error(user, "Unknown command, try !help")
-				return
-
-			#assert isinstance(cmd, CommandMount
-
-			if cmd_func.rank == const.RANK_USER:
-				cmd_func(self).run(user, args)
-
-			elif cmd_func.rank == const.RANK_MOD:
-				if has_rank(user, const.RANK_MOD) or has_rank(user, const.RANK_ADMIN):
-					cmd_func(self).run(user, args)
-				else:
-					self.error(user, "You must be a moderator to use that command.")
-
-			elif cmd_func.rank == const.RANK_ADMIN:
-				if has_rank(user, const.RANK_ADMIN):
-					cmd_func(self).run(user, args)
-				else:
-					self.error(user, "You must be an admin to use that command.")
-
-			else:
-				self.error(user, "Unknown command, try !help")
-
-		except CommandHelp, args:
-			self.sys(user, func.__doc__)
-
-		except CommandError, args:
-			self.error(user, 'There was a problem with your command (%s) Sorry!' % cmd)
-
-		except:
-			print 'An error happened in the command: %s' % cmd
-			traceback.print_exc()
-			self.error(user, 'There was a problem with your command (%s) Sorry!' % cmd)
 
 	def sendtoall(self, msg, butnot = []):
 		'''Send msg to all online users exclusing anyone in butnot.'''
@@ -273,16 +140,16 @@ class ConferenceBot(bot.Bot):
 		"Send an error message to a user"
 		self.sendto(user, "ERROR: %s" % msg)
 
-	def ev_msg(self, user, msg):
-		user = getjid(user.getStripped())
+	def ev_msg(self, user, msg, raw_msg):
+		user = utils.getjid(user.getStripped())
 		# Is this a command?
 		if msg[:1] in iMan.config.system.commandprefix:
 			self.command(user, msg[1:])
-		elif user != getjid(server.username):
+		elif user != utils.getjid(server.username):
 			if self.hook(const.LOC_EV_MSG, user, msg):
 				# self.log("<%s> %s" % (getnickname(user), msg))
-				self.sendtoall("<%s> %s" % (getnickname(user), msg),
-								butnot=[unicode(user)]
+				self.sendtoall("<%s> %s" % (utils.getnickname(user), msg),
+							   butnot=[unicode(user)]
 				)
 
 	def ev_iq(self, user, msg):
@@ -377,7 +244,7 @@ if __name__ == '__main__':
 	#	if i not in userlist.keys():
 	#		adduser(getname(i))
 
-	debug('core', "The bot is now online!\nRunning version: %s\nAt %s" % (
-			get_svn_revision(), time.strftime("%Y-%m-%d %H:%M:%S")
+	utils.debug('core', "The bot is now online!\nRunning version: %s\nAt %s" % (
+			utils.get_svn_revision(), time.strftime("%Y-%m-%d %H:%M:%S")
 		))
 	me.run()
