@@ -48,8 +48,8 @@ from	common.ini		import	iMan
 #except ImportError, e:
 #	print e
 
-class Mimic(mounts.CommandMount):
-	name = 'mimic'
+class Echo(mounts.CommandMount):
+	name = 'echo'
 	rank = const.RANK_USER
 	file = __file__
 
@@ -66,6 +66,36 @@ class RawMsg(mounts.CommandMount):
 	def thread(self, user, args, whisper):
 		self.parent.sendtoall(args)
 
+class ToggleCommand(mounts.CommandMount):
+	name = 'toggle'
+	rank = const.RANK_ADMIN
+	file = __file__
+
+	__doc__ = 'Disabled a command without unloading the whole plugin. \n' \
+				'Usage: !toggle cmd_name'
+
+	@mounts.CommandMount.thread_base
+	def thread(self, user, names, whisper):
+		if ',' in names:
+			names = names.split(',')
+		else:
+			names = [names]
+		for name in names:
+			name = name.strip()
+			cmd = self.plugins.get(name)
+			if not cmd:
+				self.parent.sendto(user, "Unknown Command: %s" % name)
+				return
+
+			if cmd.rank == const.RANK_DISABLED:
+				self.parent.sendto(user, 'Command Enabled: %s' % name)
+				cmd.rank = cmd.prev_rank
+				del cmd.prev_rank
+			else:
+				self.parent.sendto(user, 'Command Disabled: %s' % name)
+				cmd.prev_rank = cmd.rank
+				cmd.rank = const.RANK_DISABLED
+
 class HookBlockUser(mounts.HookMount):
 	name = 'block'
 	loc = [const.LOC_EV_MSG]
@@ -74,7 +104,7 @@ class HookBlockUser(mounts.HookMount):
 
 	@mounts.HookMount.thread_base
 	def thread(self, user, args):
-		if iMan.loaded('roster') and iMan.roster[utils.getname(user).lower()].blocked:
+		if iMan.loaded('roster') and iMan.roster[utils.getname(user).lower()].has_key('blocked'):
 			return True
 
 class BlockUser(mounts.CommandMount):
@@ -85,7 +115,7 @@ class BlockUser(mounts.CommandMount):
 	__doc__ = "Make the bot ignore imput from the user. \n Usage: !block <username>"
 
 	@mounts.CommandMount.thread_base
-	def thread(self, user, args, whisper):
+	def thread(self, user, target, whisper):
 		if not iMan.loaded('roster'):
 			self.parent.sendto(user, "The roster isn't loaded. I am unable to block users")
 			return
@@ -112,7 +142,7 @@ class UnblockUser(mounts.CommandMount):
 	__doc__ = "Allow the user to interact with the bot. \n Usage: !unblock <username>"
 
 	@mounts.CommandMount.thread_base
-	def thread(self, user, args, whisper):
+	def thread(self, user, target, whisper):
 		if not iMan.loaded('roster'):
 			self.parent.sendto(user, "The roster isn't loaded. I am unable to unblock users")
 			return
@@ -188,7 +218,7 @@ class Reload(mounts.CommandMount, LoadParser):
 
 		loaded = self.parent.load_plugins(plugins_to_load)
 
-		if options.plugin:
+		if options.plugin or options.all:
 			if not loaded:
 				self.parent.sendto(user, "No plugins required reloading.")
 			else:

@@ -299,29 +299,31 @@ class Help(mounts.CommandMount):
 		user_cmd_list = []
 		mod_cmd_list = []
 		admin_cmd_list = []
+		disabled_cmd_list = []
 		for cmd in mounts.CommandMount.plugins.itervalues():
 			# Skip commands if a user doesn't match the command's rank.
 			#if cmd.rank == CommandMount.RANK_USER:
 
-			if cmd.rank == const.RANK_MOD:
-				if utils.ismod(user) or utils.isadmin(user):
-					mod_cmd_list.append(cmd)
-
+			if cmd.rank == const.RANK_USER:
+				user_cmd_list.append(cmd.name)
+			elif cmd.rank == const.RANK_MOD:
+				mod_cmd_list.append(cmd.name)
 			elif cmd.rank == const.RANK_ADMIN:
-				if utils.isadmin(user):
-					admin_cmd_list.append(cmd)
-
-			else:
-				user_cmd_list.append(cmd)
+				admin_cmd_list.append(cmd.name)
+			elif cmd.rank == const.RANK_DISABLED:
+				disabled_cmd_list.append(cmd.name)
 
 		reply += " | User Cmds: "
-		reply += ', '.join([cmd.name for cmd in user_cmd_list])
-		if mod_cmd_list:
+		reply += ', '.join(user_cmd_list)
+		if mod_cmd_list and (utils.ismod(user) or utils.isadmin(user)):
 			reply += " | Mod Cmds: "
-			reply += ', '.join([cmd.name for cmd in mod_cmd_list])
-		if admin_cmd_list:
+			reply += ', '.join(mod_cmd_list)
+		if admin_cmd_list and utils.isadmin(user):
 			reply += " | Admin Cmds: "
-			reply += ', '.join([cmd.name for cmd in admin_cmd_list])
+			reply += ', '.join(admin_cmd_list)
+		if disabled_cmd_list and (utils.ismod(user) or utils.isadmin(user)):
+			reply += " | Disabled Cmds: "
+			reply += ', '.join(disabled_cmd_list)
 
 		self.parent.sendto(user,reply)
 
