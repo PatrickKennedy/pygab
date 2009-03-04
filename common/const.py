@@ -39,6 +39,7 @@ RANK_USER	= 'user'
 RANK_MOD 	= 'mod'
 RANK_ADMIN	= 'admin'
 RANK_BANNED	= 'banned'
+RANK_DISABLED = 'disabled'
 
 # Timer Delay Types
 SECONDS = 'sec'
