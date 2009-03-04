@@ -202,7 +202,7 @@ class PluginFramework(object):
 				hook = hook(self)
 
 			# Process the next frame of the hook's generator.
-			if hook.process(*args, **kwargs):
+			if hook.process(*args, **kwargs) is True:
 				return False
 
 		return True
@@ -264,6 +264,7 @@ class PluginFramework(object):
 					self.error(user, "You must be an admin to use that command.")
 
 			else:
+				authorized = False
 				self.error(user, "Unknown command, try !help")
 
 			if authorized:
@@ -274,6 +275,9 @@ class PluginFramework(object):
 
 		except const.CommandError, args:
 			self.error(user, 'There was a problem with your command: %s Sorry!' % cmd)
+
+		except StopIteration:
+			pass
 
 		except:
 			print 'An error happened in the command: %s' % cmd
