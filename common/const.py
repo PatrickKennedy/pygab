@@ -27,51 +27,12 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Custom Exceptions
-class ConnectError(Exception): pass
-class AuthError(Exception): pass
-class CommandHelp(Exception): pass
-class CommandError(Exception): pass
+from	common	import	utils
 
-# Ranks
-# Basic rank constants.
-RANK_USER	= 'user'
-RANK_MOD 	= 'mod'
-RANK_ADMIN	= 'admin'
-RANK_BANNED	= 'banned'
-RANK_DISABLED = 'disabled'
+from framework.const import *
 
-# Timer Delay Types
-SECONDS = 'sec'
-MINUTES = 'min'
-HOURS 	= 'hour'
-
-# Hook Attributes
-# Passed to indicate an attribute simply needs to be defined to be accepted.
-ATTR_DEFINED = 'def'
-# Requires a specific attribute to NOT be defined.
-ATTR_UNDEFINED = 'undef'
-
-PRIORITY_CRITICAL = 10
-PRIORITY_PERSISTANT = 5
-PRIORITY_NORMAL = 0
-
-# Hook Locations
-# ev_msg passes the sender and the sent message as a string.
-LOC_EV_MSG		= 'ev_msg'
-# ev_iq passes the calling user and the iq stanza.
-LOC_EV_IQ		= 'ev_iq'
-
-# presence events pass the user and their status as a string.
-LOC_EV_ONLINE	= 'ev_online'
-LOC_EV_AWAY		= 'ev_away'
-LOC_EV_CHAT		= 'ev_chat'
-LOC_EV_DND		= 'ev_dnd'
-LOC_EV_XA		= 'ev_xa'
-
-# Subscription events pass the user and (I'm guessing) a blank string.
-LOC_EV_UNAVAILABLE	= 'ev_unavailable'
-LOC_EV_SUBSCRIBE	= 'ev_subscribe'
-LOC_EV_SUBSCRIBED	= 'ev_subscribed'
-LOC_EV_UNSUBSCRIBE	= 'ev_unsubscribe'
-LOC_EV_UNSUBSCRIBED	= 'ev_unsubscribed'
+try:
+	exec(utils.get_import(
+		mod=utils.get_module(), from_=['const'], import_=['*']))
+except ImportError, e:
+	raise

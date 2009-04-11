@@ -36,4 +36,7 @@ from framework.utils import *
 # Import module specfic changes.
 # This allows the developer to use 'import utils' rather than
 # 'from utils import *' and the following command. Hooray for clean namespaces.
-exec(get_import(mod=get_module(), from_=['utils'], import_=['*']))
+try:
+	exec(get_import(mod=get_module(), from_=['utils'], import_=['*']))
+except ImportError, e:
+	raise

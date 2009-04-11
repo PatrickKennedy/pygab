@@ -1,10 +1,54 @@
-from common.pluginmount import PluginMount
+#!/usr/bin/env python
+#
+#  PyGab - Python Jabber Framework
+#  Copyright (c) 2008, Patrick Kennedy
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#
+#  - Redistributions of source code must retain the above copyright
+#  notice, this list of conditions and the following disclaimer.
+#
+#  - Redistributions in binary form must reproduce the above copyright
+#  notice, this list of conditions and the following disclaimer in the
+#  documentation and/or other materials provided with the distribution.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#  A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
+#  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+#  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+#  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+#  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+#  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+#  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-__all__ = ['PluginInitializers' ,'CommandMount', 'HookMount']
+from common.pluginregistry import PluginRegistry
+
+__all__ = ['thread_base', 'PluginInitializers' ,'CommandMount', 'HookMount']
+
+def thread_base(fn):
+	def thread(self):
+		result = None
+		while 1:
+			try: args = (yield result)
+			except GeneratorExit: raise
+
+			if args is None:
+				result = None
+				continue
+			user, args = args
+			result = False
+
+			result = fn(self, user, args)
+	return thread
 
 class PluginInitializers:
-	"""
-	Stores Initalization classes which run when the plugin is loaded.
+	"""Stores Initalization classes which run when the plugin is loaded.
 
 	Plugins implementing this mount should provide the following attributes:
 
@@ -28,7 +72,7 @@ class PluginInitializers:
 
 
 	"""
-	__metaclass__ = PluginMount
+	__metaclass__ = PluginRegistry
 
 	def __init__(self, parent):
 		self.parent = parent
@@ -36,8 +80,7 @@ class PluginInitializers:
 
 
 class CommandMount:
-	"""
-	Mount point for bot commands normal users can perform.
+	"""Mount point for bot commands normal users can perform.
 
 	Plugins implementing this mount should provide the following attributes:
 
@@ -68,7 +111,7 @@ class CommandMount:
 
 
 	"""
-	__metaclass__ = PluginMount
+	__metaclass__ = PluginRegistry
 
 	def __init__(self, parent):
 		self.parent = parent
@@ -76,6 +119,11 @@ class CommandMount:
 		# Initalize the plugin's thread
 		self.init_thread()
 		self.plugins[self.name] = self
+
+		# Legacy support for Mount.thread_base.
+		# In the future use mounts.thread_base.
+		global thread_base
+		self.thread_base = thread_base
 
 	def init_thread(self):
 		self._thread = self.thread()
@@ -85,29 +133,21 @@ class CommandMount:
 		try:
 			self._thread.send((user, msg, whisper))
 		except StopIteration:
+			# A stop iteration typically means the thread threw an error
+			# We will see this after the error is thrown so we want to restart
+			# the thread, and then we'll reraise the StopIteration.
 			self.init_thread()
+			self._thread.send((user, msg, whisper))
+			raise
 		except GeneratorExit:
 			CommandMount.remove(self)
-
-	@staticmethod
-	def thread_base(fn):
-		def thread(self):
-			while 1:
-				try: args = (yield)
-				except GeneratorExit: raise
-
-				if args is None: continue
-				user, args, whisper = args
-				fn(self, user, args, whisper)
-		return thread
 
 	def __exit__(self, *args):
 		self._thread.close()
 		CommandMount.remove(self)
 
 class HookMount:
-	"""
-	Mount point for hooks into various processes.
+	"""Mount point for hooks into various processes.
 
 	Each hook location calls any available classes. If a hook returns True then
 	all futher processing of hooks and code after the hook location is stopped.
@@ -152,10 +192,15 @@ class HookMount:
 
 	"""
 
-	__metaclass__ = PluginMount
+	__metaclass__ = PluginRegistry
 
 	def __init__(self, parent):
 		self.parent = parent
+
+		# Legacy support for Mount.thread_base.
+		# In the future use mounts.thread_base.
+		global thread_base
+		self.thread_base = thread_base
 
 		# Initalize the plugin's thread
 		self.init_thread()
@@ -173,29 +218,16 @@ class HookMount:
 
 	def process(self, user, msg):
 		try:
-			self._thread.send((user, msg))
+			return self._thread.send((user, msg))
 		except StopIteration:
+			# A stop iteration typically means the thread threw an error
+			# We will see this after the error is thrown so we want to restart
+			# the thread, and then we'll reraise the StopIteration.
 			self.init_thread()
+			return self._thread.send((user, msg))
+			raise
 		except GeneratorExit:
-			CommandMount.remove(self)
-
-	@staticmethod
-	def thread_base(fn):
-		def thread(self):
-			result = None
-			while 1:
-				try: args = (yield result)
-				except GeneratorExit: raise
-
-				if args is None:
-					result = None
-					continue
-				user, args = args
-				result = False
-
-				result = fn(self, user, args)
-		return thread
-
+			HookMount.remove(self)
 
 	def __exit__(self, *args):
 		self._thread.close()
