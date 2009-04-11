@@ -28,10 +28,10 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # utils.py acts a sort of __init__ file for the utils module.
-# This is a workaround to allow module specific utils.py to import the basic
+# This is a workaround to allow module specific utils.py to overwrite the basic
 # utility functions.
 
-from coreutils import *
+from framework.utils import *
 
 # Import module specfic changes.
 # This allows the developer to use 'import utils' rather than
