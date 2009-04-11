@@ -66,6 +66,16 @@ class RawMsg(mounts.CommandMount):
 	def thread(self, user, args, whisper):
 		self.parent.sendtoall(args)
 
+class Whisper(mounts.CommandMount):
+	name = 'sm'
+	rank = const.RANK_ADMIN
+	file = __file__
+
+	@mounts.CommandMount.thread_base
+	def thread(self, user, args, whisper):
+		target, msg = utils.get_target(args)
+		self.parent.sendto(target, msg)
+
 class ToggleCommand(mounts.CommandMount):
 	name = 'toggle'
 	rank = const.RANK_ADMIN
@@ -153,7 +163,7 @@ class UnblockUser(mounts.CommandMount):
 				self.parent.sendto(user, "%s is not blocked." % target)
 				return
 			else:
-				iMan.roster[unix_target].blocked = False
+				del iMan.roster[unix_target].blocked
 				self.parent.sendto(user, "I am now accepting input from %s." % target)
 				return
 		else:

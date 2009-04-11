@@ -134,6 +134,8 @@ class BotFramework(object):
 
 		while self.running:
 			try:
+				self.clearState()
+
 				#Montior day changes and changes in log location.
 				log_path = os.path.join(
 					'.', iMan.config.system.logpath or 'logs/kong',
@@ -173,7 +175,7 @@ class BotFramework(object):
 				except:
 					traceback.print_exc()
 			except IOError, e:
-				if e == 'Disconnected from server.':
+				if e.args[0] == 'Disconnected from server.':
 					self.stop()
 					self.reconnect()
 					self.run()
@@ -184,6 +186,18 @@ class BotFramework(object):
 			except:
 				traceback.print_exc()
 				continue
+
+	def clearState(self):
+		"""
+
+		Clear all state related variables.
+		This function is called at the beginning of each frame to ensure no
+		contamination between them.
+
+		"""
+
+		self.last_stanza = None
+
 
 	def processTimers(self):
 		"""processTimers() -> None
@@ -491,7 +505,7 @@ class BotFramework(object):
 		}
 
 		user = pres.getFrom()
-		self._last_stanza = pres
+		self.last_stanza = pres
 
 		if pres.getType() == "error":
 			print pres
@@ -527,7 +541,7 @@ class BotFramework(object):
 
 	def _iqcb(self, conn, iq):
 		#print iq
-		self._last_stanza = iq
+		self.last_stanza = iq
 		self.ev_iq(iq.getFrom(), iq)
 
 if __name__ == '__main__':

@@ -221,8 +221,8 @@ class Roll(mounts.CommandMount):
 
 			if dice.isdigit() and sides.isdigit():
 				dice, sides = int(dice), int(sides)
-				if dice > 25:
-					dice = 25
+				if dice > 5:
+					dice = 5
 					self.parent.error(user, "The number of sides has been set to 25.")
 				elif dice < 1:
 					dice = 1
@@ -240,6 +240,7 @@ class Roll(mounts.CommandMount):
 
 
 		for i in xrange(dice):
+			random.jumpahead(5)
 			total.append(random.randrange(1, sides + 1))
 
 		if sides != 2:
