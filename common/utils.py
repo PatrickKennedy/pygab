@@ -31,7 +31,7 @@
 # This is a workaround to allow module specific utils.py to overwrite the basic
 # utility functions.
 
-from framework.utils import *
+from core.utils import *
 
 # Import module specfic changes.
 # This allows the developer to use 'import utils' rather than

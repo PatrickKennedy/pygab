@@ -27,9 +27,9 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from	common	import	utils
+from	common	import utils
 
-from framework.const import *
+from 	core.const	import *
 
 try:
 	exec(utils.get_import(

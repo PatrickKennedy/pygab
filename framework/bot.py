@@ -37,8 +37,8 @@ import 	time
 # This lets modules access common files.
 #sys.path.append(os.path.abspath(os.path.join('.', 'common')))
 
-from 	common				import	const
-from 	common.ini			import	iMan
+from 	common		import	const
+from 	common.ini	import	iMan
 from 	common.weightless_timers import NamedThreadPool
 from 	xml.parsers.expat	import	ExpatError
 
@@ -138,8 +138,7 @@ class BotFramework(object):
 
 				#Montior day changes and changes in log location.
 				log_path = os.path.join(
-					'.', iMan.config.system.logpath or 'logs/kong',
-					self.module
+					'.', self.module, iMan.config.system.logpath or 'logs'
 				)
 				if not os.path.isdir(log_path):
 					os.mkdir(log_path)

@@ -29,7 +29,7 @@
 
 from	common	import	utils
 
-from framework.mounts import *
+from	core.mounts import *
 
 try:
 	exec(utils.get_import(
