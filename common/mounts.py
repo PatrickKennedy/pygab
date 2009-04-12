@@ -35,4 +35,6 @@ try:
 	exec(utils.get_import(
 		mod=utils.get_module(), from_=['mounts'], import_=['*']))
 except ImportError, e:
-	raise
+	# If the bot module doesn't overwrite anything, no problem.
+	pass
+	#raise

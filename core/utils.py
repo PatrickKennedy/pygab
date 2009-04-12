@@ -42,7 +42,7 @@ import	sys
 import	time
 import	traceback
 
-from 	ini 			import	iMan
+from 	common.ini		import	iMan
 from	xmpp.protocol	import	JID
 
 #Command exception classes
