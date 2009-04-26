@@ -197,7 +197,6 @@ class BotFramework(object):
 
 		self.last_stanza = None
 
-
 	def processTimers(self):
 		"""processTimers() -> None
 
@@ -484,7 +483,7 @@ class BotFramework(object):
 
 		#Prevents "NoneTypes" from causing errors.
 		if text is not None:
-			self.ev_msg(user, text, raw_msg=mess)
+			self.ev_msg(user, text)
 
 	def _presencecb(self, conn, pres):
 		presTypes1={
@@ -509,39 +508,31 @@ class BotFramework(object):
 		if pres.getType() == "error":
 			print pres
 
-		msg = pres.getStatus()
-		if msg is None:
-			msg = ""
-
-		flag = 0
+		pres_type = pres.getType()
+		msg = pres.getStatus() or ""
 
 		# Deal with subscription etc
-		if pres.getType() in presTypes1:
+		if pres_type in presTypes1:
 			presTypes1[pres.getType()](user, msg)
-			flag = 1
 
 		# Deal with away/chat/dnd/xa
-		if pres.getShow() in presShows:
+		elif pres_type in presShows:
 			presShows[pres.getShow()](user, msg)
-			flag = 1
 
 		# they're "just" online
-		if pres.getType() is None and pres.getShow() is None:
+		elif pres_type is None and pres.getShow() is None:
 			self.ev_online(user,msg)
-			flag = 1
 
 		# Deal with unsubscription etc
-		if pres.getType() in presTypes2:
+		elif pres_type in presTypes2:
 			presTypes2[pres.getType()](user, msg)
-			flag = 1
 
-		if flag == 0:
+		else:
 			print "Unknown Presence:", user, "\nType:",`pres.getType()`, " Show:",`pres.getShow()`, "\nStatus:",`pres.getStatus()`, "\nMessage:",msg
 
 	def _iqcb(self, conn, iq):
-		#print iq
 		self.last_stanza = iq
-		self.ev_iq(iq.getFrom(), iq)
+		self.ev_iq(iq.getFrom())
 
 if __name__ == '__main__':
 	print "bot.py is not meant to be run on it's own. Please run a provided module (eg. gbot.py)"
