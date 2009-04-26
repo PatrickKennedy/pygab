@@ -532,7 +532,7 @@ class BotFramework(object):
 
 	def _iqcb(self, conn, iq):
 		self.last_stanza = iq
-		self.ev_iq(iq.getFrom())
+		self.ev_iq(iq.getFrom(), iq)
 
 if __name__ == '__main__':
 	print "bot.py is not meant to be run on it's own. Please run a provided module (eg. gbot.py)"
