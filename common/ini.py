@@ -36,21 +36,21 @@ global iMan
 
 class DictIniWrapper(DictIni):
 	def has_entry(self, section, key, entry):
-		'''has_entry(str section, str key, * entry) -> bool
+		"""has_entry(str section, str key, * entry) -> bool
 
 		Return true if 'entry' is in the 'key' of 'section' of 'ini'
 
-		'''
+		"""
 		if self.has_key(section) and self[section].has_key(key):
 			return entry in self[section][key]
 		return False
 
 	def add_entry(self, section, key, entry):
-		'''add_entry(str section, str key, * entry) -> bool
+		"""add_entry(str section, str key, * entry) -> bool
 
 		Add 'entry' to 'key' in 'section'. Return False if entry exists.
 
-		'''
+		"""
 		if self.has_entry(section, key, entry):
 			return False
 
@@ -62,11 +62,11 @@ class DictIniWrapper(DictIni):
 		return True
 
 	def del_entry(self, section, key, entry):
-		'''del_entry(str section, str key, * entry) -> bool
+		"""del_entry(str section, str key, * entry) -> bool
 
 		"del an flag, return 0 if they didn't have the flag"
 
-		'''
+		"""
 		if not self.has_entry(section, key, entry):
 			return False
 
@@ -77,11 +77,11 @@ class DictIniWrapper(DictIni):
 		return True
 
 	def set_entry(self, section, key, entry):
-		'''set_entry(str section, str key, * entry) -> bool
+		"""set_entry(str section, str key, * entry) -> bool
 
 		Replace all entries in 'key' in 'section' with 'entry'
 
-		'''
+		"""
 		self[section][key] = [entry]
 		self.save()
 		return True
@@ -89,42 +89,51 @@ class DictIniWrapper(DictIni):
 
 class IniManager(object):
 
-	'''IniManager is a convience class for managing ini files.
+	"""IniManager is a convience class for managing ini files.
 
 	It provides functions for loading and unloading ini files and
 	for managing the files.
 
-	'''
+	"""
 
 	def __init__(self, temp_path='templates'):
-		'''IniManager(str temp_path='templates') -> None
+		"""IniManager(str temp_path='templates') -> None
 
-		'''
+		"""
 		self.temp_path = (curdir, temp_path)
+		# Keep track of the number of times an .ini is loaded/unloaded.
+		self.__references = {}
 
 	def __contains__(self, name):
-		'''__contains__(str name) -> bool
+		"""__contains__(str name) -> bool
 
 		Return True if 'name'.ini is loaded.
 		ex. 'roster' in iMan
 
-		'''
+		"""
 
-		return self.__dict__.__contains__(name.lower())
+		return hasattr(self, name)
 
-	def __getitem__(self, item):
-		return self.__dict__.__getitem__(item)
+	def __iter__(self):
+		for name in self.__references.iterkeys():
+			yield self[name]
 
-	def __delitem__(self, item):
-		return self.__dict__.__delitem__(item)
+	def __getitem__(self, name):
+		return getattr(self, name)
+
+	def __setitem__(self, name, value):
+		setattr(self, name, value)
+
+	def __delitem__(self, name):
+		return delattr(self, name)
 
 	def load(self, name, *subfolders):
-		'''load_ini(str name, *subfolders) -> Bool
+		"""load_ini(str name, *subfolders) -> Bool
 
 		Loads 'name'.ini making it available for use.
 		Return True if 'name'.ini loaded properly.
 
-		'''
+		"""
 		if self.loaded(name):
 			return True
 		name = name.lower()
@@ -133,8 +142,9 @@ class IniManager(object):
 		path.append("%s.ini" % name)
 		try:
 			ini = DictIniWrapper(join(*path), encoding = "utf8")
-			self.__dict__[name] = ini
+			self[name] = ini
 			ini.read()
+			self.__references[name] = self.__references.get(name, 0) + 1
 			return True
 		except IOError:
 			return False
@@ -143,74 +153,74 @@ class IniManager(object):
 			return False
 
 	def loaded(self, name):
-		'''loaded(str name) -> bool
+		"""loaded(str name) -> bool
 
 		Return True if 'name'.ini is loaded.
 
-		'''
-		return self.__contains__(name)
+		"""
+		return name in self
 
 	def unload(self, name, save=False):
-		'''unload(str name, bool save=False) -> bool
+		"""unload(str name, bool save=False) -> bool
 
 		Unloads 'name'.ini.
 		If 'save' is true ini.save will be called.
 
-		'''
+		"""
 		name = name.lower()
-		if name in self.__dict__:
-			if save:
-				self.__dict__[name].save()
-			del self.__dict__[name]
-			return True
+		if name in self:
+			self.__references[name] = self.__references.get(name, 0) - 1
+			if self.__references[name] >= 0:
+				if save:
+					self[name].save()
+				del self[name]
+				del self.__references[name]
+				return True
 		return False
 
 	def rename(self, name, new_name):
-		'''rename(str name, str new_name) -> None
+		"""rename(str name, str new_name) -> None
 
 		Renames the ini 'name' to 'new_name'.
 
-		'''
+		"""
 		name = name.lower()
-		ini = self.__dict__[name]
+		ini = self[name]
+		self[new_name] = ini
 		ini.setfilename(new_name)
 		ini.save()
 
 	def readall(self):
-		'''readall() -> None
+		"""readall() -> None
 
 		Read all loaded ini files.
 
-		'''
-		for ini in self.__dict__.itervalues():
-			if not isinstance(ini, DictIni):
-				continue
+		"""
+		for ini in self:
 			ini.read()
 
 	def saveall(self):
-		'''readall() -> None
+		"""readall() -> None
 
 		Save all loaded ini files.
 
-		'''
-		for ini in self.__dict__.itervalues():
-			if not isinstance(ini, DictIni):
-				continue
+		"""
+		for ini in self:
 			ini.save()
 			#print "DEBUG: Saving %s" % ini.getfilename()
 
 		#print "Debug: IniManager has saved all ini files."
 
 	def has_entry(self, ini, section, key, entry):
-		'''has_entry(* ini, str section, str key, * entry) -> bool
+		"""has_entry(* ini, str section, str key, * entry) -> bool
 
 		Return true if 'entry' is in the 'key' of 'section' of 'ini'
 
-		'''
+		"""
 		if not isinstance(ini, DictIni):
 			# Always returns False if the ini hasn't been loaded.
 			try:
-				ini = self.__dict__[ini]
+				ini = self[ini]
 			except KeyError:
 				return False
 
@@ -219,15 +229,15 @@ class IniManager(object):
 		return False
 
 	def add_entry(self, ini, section, key, entry):
-		'''add_entry(* ini, str section, str key, * entry) -> bool
+		"""add_entry(* ini, str section, str key, * entry) -> bool
 
 		Add 'entry' to 'key' in 'section'. Return False if entry exists.
 
-		'''
+		"""
 		if not isinstance(ini, DictIni):
 			# Always returns False if the ini hasn't been loaded.
 			try:
-				ini = self.__dict__[ini]
+				ini = self[ini]
 			except KeyError:
 				return False
 
@@ -242,15 +252,15 @@ class IniManager(object):
 		return True
 
 	def del_entry(self, ini, section, key, entry):
-		'''del_entry(* ini, str section, str key, * entry) -> bool
+		"""del_entry(* ini, str section, str key, * entry) -> bool
 
 		"del an flag, return 0 if they didn't have the flag"
 
-		'''
+		"""
 		if not isinstance(ini, DictIni):
 			# Always returns False if the ini hasn't been loaded.
 			try:
-				ini = self.__dict__[ini]
+				ini = self[ini]
 			except KeyError:
 				return False
 
@@ -264,15 +274,15 @@ class IniManager(object):
 		return True
 
 	def set_entry(self, ini, section, key, entry):
-		'''set_entry(* ini, str section, str key, * entry) -> bool
+		"""set_entry(* ini, str section, str key, * entry) -> bool
 
 		Replace all entries in 'key' in 'section' with 'entry'
 
-		'''
+		"""
 		if not isinstance(ini, DictIni):
 			# Always returns False if the ini hasn't been loaded.
 			try:
-				ini = self.__dict__[ini]
+				ini = self[ini]
 			except KeyError:
 				return False
 
@@ -281,14 +291,14 @@ class IniManager(object):
 		return True
 
 	def _merge_template(self, ini, template):
-		'''_merge_template(DictIni ini, DictIni template) -> DictIni
+		"""_merge_template(DictIni ini, DictIni template) -> DictIni
 
 		Fills in any missing entries from the config.
 		Note: You can pass any dictionary style object through this.
 
-		'''
+		"""
 		if not isinstance(ini, DictIni):
-			ini = self.__dict__[ini]
+			ini = self[ini]
 
 		for (section, key) in template.items():
 			if not ini.has_key(section) or not ini[section].has_key(key):
@@ -297,7 +307,7 @@ class IniManager(object):
 		return ini
 
 	def _read_or_prompt(self, ini, section, option, description):
-		'''Read an option from 'ini', or prompt for it'''
+		"""Read an option from 'ini', or prompt for it"""
 		if not ini[section].get(option):
 			ini[section][option] = raw_input('%s\nLeave Blank to use Default > ' % description)
 
