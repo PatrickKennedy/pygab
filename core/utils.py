@@ -156,42 +156,25 @@ def getjid(user, domain='', resource=''):
 	)
 
 def has_nick(jid):
-	'''Returns True if jid has a nickname'''
+	"""Returns True if jid has a nickname"""
 	pass
 
 def get_nick(jid):
-	'''Returns the nickname of jid'''
+	"""Returns the nickname of jid"""
 	pass
 
-#======
-#= Rank Commands
-def has_rank(jid, rank):
-	"""Return True if 'jid' is 'rank'."""
-	return iMan.has_entry('roster', jid, "rank", rank)
-def del_rank(jid, rank):
-	"""Delete 'rank' from 'jid'."""
-	return iMan.del_entry('roster', jid, "rank", rank)
-def add_rank(jid, rank):
-	"""Add 'rank' to 'jid'."""
-	return iMan.add_entry('roster', jid, "rank", rank)
-def set_rank(jid, rank):
-	"""Set 'jid's rank to 'rank'."""
-	return iMan.set_entry('roster', jid, "rank", rank)
-
-#=====
-#= Status Commands
-def has_status(jid, status):
-	"""Return True if 'jid' has 'status'."""
-	return iMan.has_entry('roster', jid, "status", status)
-def del_status(jid, status):
-	"""Delete 'status' from 'jid'."""
-	return iMan.del_entry('roster', jid, "status", status)
-def add_status(jid, status):
-	"""Add 'status' to 'jid'."""
-	return iMan.add_entry('roster', jid, "status", status)
-def set_status(jid, status):
-	"""Set 'jid's status to 'status'."""
-	return iMan.set_entry('roster', jid, "status", status)
+def has_attr(jid, attr, value):
+	"""Return True if 'jid' has value."""
+	return iMan.has_entry('roster', jid, attr, value)
+def del_attr(jid, attr, rank):
+	"""Delete value from 'jid'."""
+	return iMan.del_entry('roster', jid, attr, value)
+def add_attr(jid, attr, rank):
+	"""Add value to 'jid'."""
+	return iMan.add_entry('roster', jid, attr, value)
+def set_attr(jid, attr, rank):
+	"""Set 'jid's attr to value."""
+	return iMan.set_entry('roster', jid, attr, value)
 
 #=====
 #= Misc (Ordered Alphabetically)
@@ -199,7 +182,7 @@ def addUser(jid):
 	jid = unicode(jid.getStripped())
 	iMan.set_entry('roster', jid, "last_login", time.time())
 	iMan.set_entry('roster', jid, "last_message", time.time())
-	set_rank(jid, const.RANK_USER)
+	set_attr(jid, 'rank', const.RANK_USER)
 
 def formattime(time_tuple, format=''):
 	"""formattime(tuple time, str format=iMan.config.system.timeformat) -> str
@@ -215,8 +198,8 @@ def formattime(time_tuple, format=''):
 # Get the target of a command.
 # By passing a string with a space you can give
 # a reason for targeting the person.
-def get_target(target):
-	"""get_target(str target) -> list
+def split_target(target):
+	"""split_target(str target) -> list
 
 	Return the target of a command and a reason if there is a space in 'target'
 
@@ -229,8 +212,9 @@ def get_target(target):
 	return [getjid(target), reason]
 
 
-def hasnick(user): return nick.inuse.has_key(user)
-def is_plugin(args):	return args in iMan.config.system.plugins.split(" ")
+def is_plugin(args):
+	return args in iMan.config.system.plugins.split(" ")
+
 def isuser(bot, user):
 	"Return True if the user exists in the bot."
 	user = getjid(user)
@@ -316,6 +300,9 @@ def open_if_exists(filename, mode='r'):
 		if e.errno not in (errno.ENOENT, errno.EISDIR):
 			raise
 
+def _s(i):
+	return (i != 1 and 's' or '')
+
 def date_diff(then):
 	"""date_diff(then: datetime.datetime) -> str
 
@@ -353,6 +340,30 @@ def date_diff(then):
 		return then.strftime('Today, %H:%M GMT')
 
 	return then.strftime('%A, %H:%M GMT')
+
+def time_since(then, suffix=' ago'):
+	diff = (datetime.datetime.now() - then)
+	seconds = diff.seconds
+	minutes = seconds / 60
+	hours = minutes / 60
+	days = diff.days
+
+	if days < 1:
+		if seconds < 5:
+			time = 'a moment'
+		elif seconds < 60:
+			time = '%d second%s' % (seconds, _s(seconds))
+		elif minutes < 60:
+			time = '%d minute%s' % (minutes, _s(minutes))
+		elif hours < 24:
+			time = '%s hour%s' % (hours, _s(hours))
+	else:
+		if hours:
+			time = '%d day%s and %d hour%s' % (days, _s(days),
+												   hours, _s(hours))
+		else:
+			time = 'exactly %d day%s' % (days, _s(days))
+	return time+suffix
 
 def get_svn_revision():
 	"""get_svn_revision() -> str
