@@ -36,6 +36,29 @@ import	traceback
 from	common	import const, mounts, utils
 from	common.ini	import iMan
 
+def attach_hooks(func):
+	"""Attach both pre- and -post hooks.
+
+	"""
+
+	def wrapper(self, *args):
+		self.hook(func.__name__+'_pre', *args)
+		func(self, *args)
+		self.hook(func.__name__+'_post', *args)
+	return wrapper
+
+def attach_post_hook(func):
+	"""Attach only the -post hook.
+
+	For use if there is a critical check before the pre- hook which requires it
+	to be defined within the function itself.
+
+	"""
+
+	def wrapper(self, *args):
+		func(self, *args)
+		self.hook(func.__name__+'_post', *args)
+	return wrapper
 
 class PluginFramework(object):
 	"""
@@ -73,6 +96,16 @@ class PluginFramework(object):
 			)
 			if os.path.exists(plug_path):
 				yield plug_path
+
+	def plugin_changed(self, plugin_name, plugin_source=None):
+		"""Return True if a plugin's source has changed"""
+
+		if not plugin_source:
+			path_ = self.get_plugin_path(plugin_name)
+			with open(path_, "r") as f:
+				plugin_source = f.read()
+
+		return self._pluginhash.get(plugin_name, 0) != hash(plugin_source)
 
 	def load_plugins(self, plugins):
 		"""load_plugins(plugins: list<str>) -> list
@@ -118,7 +151,7 @@ class PluginFramework(object):
 		with open(path_, "r") as f:
 			a = f.read()
 		# Skip plugins that haven't been updated.
-		if self._pluginhash.get(name, 0) == hash(a):
+		if not self.plugin_changed(name, a):
 			return False
 
 		# Replicate __file__ in the plugin, since it isn't set by the
@@ -203,9 +236,9 @@ class PluginFramework(object):
 
 			# Process the next frame of the hook's generator.
 			if hook.process(*args, **kwargs) is True:
-				return False
+				return True
 
-		return True
+		return False
 
 		for hook in mounts.HookMount.get_plugin_list(
 			loc=loc, critical=True, persist=None):
@@ -279,7 +312,8 @@ class PluginFramework(object):
 		except StopIteration:
 			pass
 
-		except:
+		except Exception, e:
 			print 'An error happened in the command: %s' % cmd
 			traceback.print_exc()
-			self.error(user, 'There was a problem with your command (%s) Sorry!' % cmd)
+			self.error(user, 'There was a problem with your command: %s. Sorry! '
+						'Exception: %r' % (cmd, e))

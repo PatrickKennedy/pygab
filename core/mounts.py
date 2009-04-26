@@ -32,7 +32,7 @@ from framework.pluginregistry import PluginRegistry
 __all__ = ['thread_base', 'PluginInitializers' ,'CommandMount', 'HookMount']
 
 def thread_base(fn):
-	def thread(self):
+	def thread():
 		result = None
 		while 1:
 			try: args = (yield result)
@@ -41,10 +41,9 @@ def thread_base(fn):
 			if args is None:
 				result = None
 				continue
-			user, args = args
 			result = False
 
-			result = fn(self, user, args)
+			result = fn(*args)
 	return thread
 
 class PluginInitializers:
@@ -118,15 +117,12 @@ class CommandMount:
 
 		# Initalize the plugin's thread
 		self.init_thread()
+		# Replace the class object with this instance
 		self.plugins[self.name] = self
 
-		# Legacy support for Mount.thread_base.
-		# In the future use mounts.thread_base.
-		global thread_base
-		self.thread_base = thread_base
-
 	def init_thread(self):
-		self._thread = self.thread()
+		global thread_base
+		self._thread = thread_base(self.thread)()
 		self._thread.send(None)
 
 	def process(self, user, msg, whisper=False):
@@ -197,17 +193,15 @@ class HookMount:
 	def __init__(self, parent):
 		self.parent = parent
 
-		# Legacy support for Mount.thread_base.
-		# In the future use mounts.thread_base.
-		global thread_base
-		self.thread_base = thread_base
-
 		# Initalize the plugin's thread
 		self.init_thread()
+		# Replace the class object with this instance
 		self.plugins[self.name] = self
 
 	def init_thread(self):
-		self._thread = self.thread()
+		global thread_base
+		self._thread = thread_base(self.thread)()
+		#self._thread = self.thread()
 		self._thread.send(None)
 
 	@staticmethod

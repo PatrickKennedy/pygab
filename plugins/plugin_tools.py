@@ -49,97 +49,10 @@ class Init(mounts.PluginInitializers):
 
 	def initialize(self):
 		iMan.load('roster', utils.get_module())
-		iMan.load('mail', utils.get_module())
 
 	def __exit__(self, *args):
-		iMan.unload('mail', save=True)
+		iMan.unload('roster', save=True)
 		mounts.PluginInitializers.remove(self.__class__)
-
-
-def delay_hookmail():
-	"""
-
-	The bot may recieve online events when it comes online so we'll use a timer
-	to ignore those.
-
-	"""
-	class HookMail(mounts.HookMount):
-		name = 'mail'
-		loc = [const.LOC_EV_ONLINE]
-		file = __file__
-		persist = True
-
-		def run(self, user, status):
-			username = utils.getname(user).lower()
-			if username in iMan.mail:
-				def delay_function():
-					self.parent.sendto(
-						user, "You've got %d new messages."
-						"Please type /w %s !mail --get to read it." %
-						(len(iMan.mail[username].keys()), iMan.config.server.displayname)
-					)
-				t = threading.Timer(10.0, delay_function)
-				t.start()
-				return
-#t = threading.Timer(10.0, delay_hookmail)
-#t.start()
-
-
-class Mail:#mounts.CommandMount):
-	name = 'mail'
-	rank = const.RANK_ADMIN
-	file = __file__
-
-	arg_parser = argparse.ArgumentParser(prog='!mail', add_help=False)
-	arg_parser.add_argument(
-		'message',
-		default=False, nargs='*',
-		metavar='message', help='Mail message'
-	)
-	arg_parser.add_argument(
-		'-g', '--get',
-		action='store_true',
-		help='Get the next message on your box'
-	)
-	arg_parser.add_argument(
-		'-t', '--to',
-		default=False, nargs='?',
-		metavar='recipient', help='recipent of your message'
-	)
-
-	__doc__ = "Send a single message to a user next time they login. \n" \
-				"Usage: !mail [-g] [-t username message]"
-
-	def run(self, user, args):
-		args = self.arg_parser.parse_args(shlex.split(args))
-		username = utils.getname(user).lower()
-		if args.get:
-			if username in iMan.mail:
-				letters = iMan.mail[username].items()
-				# Only take the top letter.
-				sender, message = letters[0]
-				if isinstance(message, list):
-					message = message[0]
-
-				self.parent.sendto(user, "%s says '%s'" % (sender, message))
-				self.parent.sendto(
-					user, "You have %d more letter(s)." %
-					(len(letters) - 1)
-				)
-
-				del iMan.mail[username][sender]
-				if not iMan.mail[username]:
-					del iMan.mail[username]
-			else:
-				self.parent.sendto(user, "You have no more letters.")
-
-		elif args.to:
-			args.to = args.to.lower()
-			if args.to not in iMan.roster:
-				self.parent.sendto(user, "I don't know %s and, therefore, can't send him a letter." % args.to)
-			else:
-				iMan.mail[args.to][utils.getname(user)] = args.message
-				self.parent.sendto(user, "I have mailed your message to %s. He will get it when he logs in." % args.to)
 
 class Calc(mounts.CommandMount):
 	name = 'calc'
@@ -156,7 +69,7 @@ class Calc(mounts.CommandMount):
 			e = 'a='+e
 		return e
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, e, whispered):
 		"""Calculate an equation.
 
@@ -193,7 +106,7 @@ class Hack(mounts.CommandMount):
 	rank = const.RANK_USER
 	file = __file__
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, msg, whispered):
 		self.parent.error(user, "Your IP has been logged.")
 
@@ -202,7 +115,7 @@ class Roll(mounts.CommandMount):
 	rank = const.RANK_USER
 	file = __file__
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, args, whispered):
 		"""Rolls a random number.
 		Usage: )dice [[<number of dice>][d<number of sides>]]

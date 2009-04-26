@@ -53,7 +53,7 @@ class Echo(mounts.CommandMount):
 	rank = const.RANK_USER
 	file = __file__
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, args, whisper):
 		self.parent.sendto(user, args)
 
@@ -62,7 +62,7 @@ class RawMsg(mounts.CommandMount):
 	rank = const.RANK_ADMIN
 	file = __file__
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, args, whisper):
 		self.parent.sendtoall(args)
 
@@ -71,9 +71,9 @@ class Whisper(mounts.CommandMount):
 	rank = const.RANK_ADMIN
 	file = __file__
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, args, whisper):
-		target, msg = utils.get_target(args)
+		target, msg = utils.split_target(args)
 		self.parent.sendto(target, msg)
 
 class ToggleCommand(mounts.CommandMount):
@@ -84,7 +84,7 @@ class ToggleCommand(mounts.CommandMount):
 	__doc__ = 'Disabled a command without unloading the whole plugin. \n' \
 				'Usage: !toggle cmd_name'
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, names, whisper):
 		if ',' in names:
 			names = names.split(',')
@@ -112,19 +112,19 @@ class HookBlockUser(mounts.HookMount):
 	file = __file__
 	priority = const.PRIORITY_CRITICAL
 
-	@mounts.HookMount.thread_base
+
 	def thread(self, user, args):
 		if iMan.loaded('roster') and iMan.roster[utils.getname(user).lower()].has_key('blocked'):
 			return True
 
-class BlockUser(mounts.CommandMount):
-	name = 'block'
+class IgnoreUser(mounts.CommandMount):
+	name = 'ignore'
 	rank = const.RANK_ADMIN
 	file = __file__
 
 	__doc__ = "Make the bot ignore imput from the user. \n Usage: !block <username>"
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, target, whisper):
 		if not iMan.loaded('roster'):
 			self.parent.sendto(user, "The roster isn't loaded. I am unable to block users")
@@ -144,14 +144,14 @@ class BlockUser(mounts.CommandMount):
 			self.parent.sendto(user, "I am no longer accepting input from %s. NOTE: I don't know who that is." % target)
 			return
 
-class UnblockUser(mounts.CommandMount):
-	name = 'unblock'
+class UnignoreUser(mounts.CommandMount):
+	name = 'unignore'
 	rank = const.RANK_ADMIN
 	file = __file__
 
 	__doc__ = "Allow the user to interact with the bot. \n Usage: !unblock <username>"
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, target, whisper):
 		if not iMan.loaded('roster'):
 			self.parent.sendto(user, "The roster isn't loaded. I am unable to unblock users")
@@ -202,7 +202,7 @@ class Reload(mounts.CommandMount, LoadParser):
 
 	__doc__ = """Reload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, args, whisper):
 		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
@@ -226,6 +226,9 @@ class Reload(mounts.CommandMount, LoadParser):
 		elif options.plugin:
 			plugins_to_load = [options.plugin]
 
+		plugins_to_load = [x for x in plugins_to_load
+						   if self.parent.plugin_changed(x)]
+		self.parent.unload_plugins(plugins_to_load)
 		loaded = self.parent.load_plugins(plugins_to_load)
 
 		if options.plugin or options.all:
@@ -234,12 +237,15 @@ class Reload(mounts.CommandMount, LoadParser):
 			else:
 				self.parent.sendto(user, "Plugins reloaded: %s" % ", ".join(loaded))
 
+	# When we're reloading THIS command is active and can't be unloaded.
+	def __exit__(*args): pass
+
 class Load(mounts.CommandMount, LoadParser):
 	name = 'load'
 
 	__doc__ = """Load parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, args, whisper):
 		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
@@ -272,7 +278,7 @@ class Unload(mounts.CommandMount, LoadParser):
 
 	__doc__ = """Unload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
-	@mounts.CommandMount.thread_base
+
 	def thread(self, user, args, whisper):
 		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
@@ -295,3 +301,6 @@ class Unload(mounts.CommandMount, LoadParser):
 			names = [options.plugin]
 			unloaded = self.parent.unload_plugins(names)
 			self.parent.sendto(user, "Plugins unloaded: %s" % ", ".join(unloaded))
+
+	# In the event we unload this plugin THIS command is active and can't be unloaded.
+	def __exit__(*args): pass
