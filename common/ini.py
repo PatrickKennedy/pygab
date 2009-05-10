@@ -29,7 +29,7 @@
 
 import traceback
 
-from	common.pyni		import ConfigRoot
+from	common.pyni		import ConfigRoot, ConfigNode
 from	os.path			import abspath, curdir, join
 
 global iMan
@@ -173,7 +173,7 @@ class IniManager(object):
 		Return true if 'entry' is in the 'key' of 'section' of 'ini'
 
 		"""
-		if not isinstance(ini, DictIni):
+		if not isinstance(ini, ConfigNode):
 			# Always returns False if the ini hasn't been loaded.
 			ini = getattr(self, ini)
 			if not ini:
@@ -190,7 +190,7 @@ class IniManager(object):
 		Add 'entry' to 'key' in 'section'. Return False if entry exists.
 
 		"""
-		if not isinstance(ini, DictIni):
+		if not isinstance(ini, ConfigNode):
 			# Always returns False if the ini hasn't been loaded.
 			ini = getattr(self, ini)
 			if not ini:
@@ -212,7 +212,7 @@ class IniManager(object):
 		"del an flag, return 0 if they didn't have the flag"
 
 		"""
-		if not isinstance(ini, DictIni):
+		if not isinstance(ini, ConfigNode):
 			# Always returns False if the ini hasn't been loaded.
 			ini = getattr(self, ini)
 			if not ini:
@@ -233,7 +233,7 @@ class IniManager(object):
 		Replace all entries in 'key' in 'section' with 'entry'
 
 		"""
-		if not isinstance(ini, DictIni):
+		if not isinstance(ini, ConfigNode):
 			# Always returns False if the ini hasn't been loaded.
 			ini = getattr(self, ini)
 			if not ini:
@@ -250,7 +250,7 @@ class IniManager(object):
 		Note: You can pass any dictionary style object through this.
 
 		"""
-		if not isinstance(ini, DictIni):
+		if not isinstance(ini, ConfigNode):
 			ini = self[ini]
 
 		for (section, key) in template.items():
