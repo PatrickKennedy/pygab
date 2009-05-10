@@ -29,7 +29,6 @@
 
 import traceback
 
-from	common.dict4ini	import DictIni
 from	common.pyni		import ConfigRoot
 from	os.path			import abspath, curdir, join
 
