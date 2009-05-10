@@ -34,11 +34,11 @@ import os
 from collections import defaultdict
 from StringIO import StringIO
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 class ConfigNode(defaultdict):
 	def __init__(self):
-		self.default_factory = type(self)
+		self.default_factory = ConfigNode
 		self._comments = {}
 
 	def __getattr__(self, attr):
@@ -107,15 +107,15 @@ class ConfigNode(defaultdict):
 			value._output(stream, parents)
 			parents.pop()
 			stream.flush()
-			
+
 		return stream
 
 class ConfigRoot(ConfigNode):
 
 	def __init__(self, filename, encoding='utf-8'):
+		ConfigNode.__init__(self)
 		self._filename = filename
 		self._encoding = encoding
-		self.default_factory = ConfigNode
 
 	def read(self, clear=True):
 		self.parse_config()
