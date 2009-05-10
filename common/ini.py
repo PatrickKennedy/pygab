@@ -29,63 +29,11 @@
 
 import traceback
 
-from	common.dict4ini	import	DictIni
-from	os.path			import	abspath, curdir, join
+from	common.dict4ini	import DictIni
+from	common.pyni		import ConfigRoot
+from	os.path			import abspath, curdir, join
 
 global iMan
-
-class DictIniWrapper(DictIni):
-	def has_entry(self, section, key, entry):
-		"""has_entry(str section, str key, * entry) -> bool
-
-		Return true if 'entry' is in the 'key' of 'section' of 'ini'
-
-		"""
-		if self.has_key(section) and self[section].has_key(key):
-			return entry in self[section][key]
-		return False
-
-	def add_entry(self, section, key, entry):
-		"""add_entry(str section, str key, * entry) -> bool
-
-		Add 'entry' to 'key' in 'section'. Return False if entry exists.
-
-		"""
-		if self.has_entry(section, key, entry):
-			return False
-
-		if self.has_key(section) and self[section].has_key(key):
-			self[section][key].append(entry)
-		else:
-			self[section][key] = [entry]
-		self.save()
-		return True
-
-	def del_entry(self, section, key, entry):
-		"""del_entry(str section, str key, * entry) -> bool
-
-		"del an flag, return 0 if they didn't have the flag"
-
-		"""
-		if not self.has_entry(section, key, entry):
-			return False
-
-		self[section][key].remove(entry)
-		if not self[section][key]:
-			del self[section][key]
-		self.save()
-		return True
-
-	def set_entry(self, section, key, entry):
-		"""set_entry(str section, str key, * entry) -> bool
-
-		Replace all entries in 'key' in 'section' with 'entry'
-
-		"""
-		self[section][key] = [entry]
-		self.save()
-		return True
-
 
 class IniManager(object):
 
@@ -127,30 +75,39 @@ class IniManager(object):
 	def __delitem__(self, name):
 		return delattr(self, name)
 
-	def load(self, name, *subfolders):
-		"""load_ini(str name, *subfolders) -> Bool
+	def load(self, ini_path, *subfolders):
+		"""load_ini(ini_path: list) -> Bool
 
 		Loads 'name'.ini making it available for use.
 		Return True if 'name'.ini loaded properly.
 
 		"""
+		if isinstance(ini_path, basestring):
+			ini_path = [ini_path]
+		name = ini_path.pop().lower()
+
 		if self.loaded(name):
-			return True
-		name = name.lower()
-		path = [curdir]
-		path.extend(subfolders)
-		path.append("%s.ini" % name)
-		try:
-			ini = DictIniWrapper(join(*path), encoding = "utf8")
-			self[name] = ini
-			ini.read()
 			self.__references[name] = self.__references.get(name, 0) + 1
 			return True
+
+		path = [curdir]
+		path.extend(ini_path)
+		path.append("%s.ini" % name)
+
+		try:
+			ini = ConfigRoot(join(*path), encoding = "utf-8")
+			print "Reading %s" % path[-1]
+			ini.read()
 		except IOError:
+			traceback.print_exc()
 			return False
 		except:
 			traceback.print_exc()
 			return False
+		else:
+			setattr(self, name, ini)
+			self.__references[name] = self.__references.get(name, 0) + 1
+			return True
 
 	def loaded(self, name):
 		"""loaded(str name) -> bool
@@ -160,8 +117,8 @@ class IniManager(object):
 		"""
 		return name in self
 
-	def unload(self, name, save=False):
-		"""unload(str name, bool save=False) -> bool
+	def unload(self, name, save=True):
+		"""unload(str name, bool save=True) -> bool
 
 		Unloads 'name'.ini.
 		If 'save' is true ini.save will be called.
@@ -170,7 +127,7 @@ class IniManager(object):
 		name = name.lower()
 		if name in self:
 			self.__references[name] = self.__references.get(name, 0) - 1
-			if self.__references[name] >= 0:
+			if self.__references[name] <= 0:
 				if save:
 					self[name].save()
 				del self[name]
@@ -219,12 +176,12 @@ class IniManager(object):
 		"""
 		if not isinstance(ini, DictIni):
 			# Always returns False if the ini hasn't been loaded.
-			try:
-				ini = self[ini]
-			except KeyError:
+			ini = getattr(self, ini)
+			if not ini:
 				return False
 
-		if ini.has_key(section) and ini[section].has_key(key):
+		if section in ini and key in ini[section]:
+			print ini[section][key]
 			return entry in ini[section][key]
 		return False
 
@@ -236,9 +193,8 @@ class IniManager(object):
 		"""
 		if not isinstance(ini, DictIni):
 			# Always returns False if the ini hasn't been loaded.
-			try:
-				ini = self[ini]
-			except KeyError:
+			ini = getattr(self, ini)
+			if not ini:
 				return False
 
 		if self.has_entry(ini, section, key, entry):
@@ -259,9 +215,8 @@ class IniManager(object):
 		"""
 		if not isinstance(ini, DictIni):
 			# Always returns False if the ini hasn't been loaded.
-			try:
-				ini = self[ini]
-			except KeyError:
+			ini = getattr(self, ini)
+			if not ini:
 				return False
 
 		if not self.has_entry(ini, section, key, entry):
@@ -281,9 +236,8 @@ class IniManager(object):
 		"""
 		if not isinstance(ini, DictIni):
 			# Always returns False if the ini hasn't been loaded.
-			try:
-				ini = self[ini]
-			except KeyError:
+			ini = getattr(self, ini)
+			if not ini:
 				return False
 
 		ini[section][key] = [entry]

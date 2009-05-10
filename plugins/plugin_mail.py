@@ -41,12 +41,12 @@ class Init(mounts.PluginInitializers):
 	name = __file__
 
 	def initialize(self):
-		iMan.load('roster', utils.get_module())
-		iMan.load('mail', utils.get_module())
+		iMan.load([utils.get_module(), 'roster'])
+		iMan.load([utils.get_module(), 'mail'])
 
 	def __exit__(self, *args):
-		iMan.unload('roster', save=True)
-		iMan.unload('mail', save=True)
+		iMan.unload('roster')
+		iMan.unload('mail')
 		mounts.PluginInitializers.remove(self.__class__)
 
 
@@ -69,7 +69,7 @@ def delay_hookmail():
 				def f():
 					self.parent.sendto(
 						user, "You've got %d new messages. "
-						"Please type '/w %s !mail -g' to read it." %
+						"Please type '/w %s !mail get' to read it." %
 						(len(iMan.mail[username].keys()), iMan.config.server.displayname)
 					)
 				self.parent.addTimer(1, f, 0, type='seconds')
@@ -108,6 +108,7 @@ class Mail(mounts.CommandMount):
 		cmd, message = args[0], args[1:]
 		cmd = cmd.lower()
 		username = utils.getname(user).lower()
+
 		if cmd == 'get':
 			if username in iMan.mail:
 				letters = iMan.mail[username].items()
@@ -141,10 +142,15 @@ class Mail(mounts.CommandMount):
 
 		else:
 			target = cmd.lower()
-			if target not in iMan.roster:
+			if target == iMan.config.server.displayname.lower():
+				self.parent.sendto(user, "Why do you need to send me mail?")
+				return
+			elif target not in iMan.roster:
 				self.parent.sendto(user, "I don't know %s and, therefore, "
 								   "can't send him a letter." % cmd)
 			else:
 				iMan.mail[target][utils.getname(user)] = ' '.join(message)
 				self.parent.sendto(user, "I have mailed your message to %s. "
 								   "He will notified it when he logs in." % cmd)
+
+		iMan.mail.save()

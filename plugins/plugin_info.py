@@ -48,7 +48,7 @@ class Init(mounts.PluginInitializers):
 	name = __file__
 
 	def initialize(self):
-		iMan.load('roster', utils.get_module())
+		iMan.load([utils.get_module(), 'roster'])
 		#self.parent.addTimer(5, self.test_timer, repeat=5, type='seconds')
 
 	def test_timer(self):
@@ -73,7 +73,7 @@ class Help(mounts.CommandMount):
 	__doc__ = """Display this help message.\n%s""" % (help_parser.format_help())
 
 
-	
+
 	def thread(self, user, args, whisper):
 		args = self.help_parser.parse_args(shlex.split(args))
 		if args.cmd:
@@ -130,7 +130,7 @@ class Names():#CommandMount):
 	#Setup the doc string with the help text from the argument parser.
 	__doc__ = """List status of users.\n%s""" % (name_parser.format_help())
 
-	
+
 	def thread(self, user, args, whisper):
 		statuses ={
 			'admins' : [],
