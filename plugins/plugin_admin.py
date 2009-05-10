@@ -53,8 +53,20 @@ class GrantAdmin(mounts.CommandMount):
 	rank = const.RANK_HIDDEN
 	file = __file__
 
+	grant_pass = 'BaconIsYummy'
+	plugin_name = os.path.split(__file__)[1]
+	plugin_name = os.path.splitext(plugin_name)[0]
+	if iMan.load([utils.get_module(), 'plugins', plugin_name]):
+		if 'grant_pass' not in iMan[plugin_name]:
+			iMan[plugin_name].grant_pass = grant_pass
+		else:
+			grant_pass = iMan[plugin_name].grant_pass
+		iMan[plugin_name]._comments['grant_pass'] = '# This is the password' \
+			'that needs to be passed to !grant to grant the caller admin status.'
+		iMan.unload(plugin_name)
+
 	def thread(self, user, args, whisper):
-		if args == 'BaconIsYummy':
+		if args == self.grant_pass:
 			iMan.load([utils.get_module(), 'roster'])
 			iMan.roster[utils.getname(user).lower()].rank = const.RANK_ADMIN
 			iMan.unload('roster')
@@ -65,7 +77,6 @@ class Echo(mounts.CommandMount):
 	rank = const.RANK_USER
 	file = __file__
 
-
 	def thread(self, user, args, whisper):
 		self.parent.sendto(user, args)
 
@@ -73,7 +84,6 @@ class RawMsg(mounts.CommandMount):
 	name = 'raw'
 	rank = const.RANK_ADMIN
 	file = __file__
-
 
 	def thread(self, user, args, whisper):
 		self.parent.sendtoall(args)
@@ -214,6 +224,11 @@ class LoadParser(object):
 		help='Equvilant to -p -i'
 	)
 	load_parser.add_argument(
+		'-f', '--force',
+		action='store_true',
+		help='force an action'
+	)
+	load_parser.add_argument(
 		'-p', '--plugin',
 		const=True, default=False, nargs='?',
 		metavar='plugin_name', help='(re|un)load plugins'
@@ -223,7 +238,6 @@ class LoadParser(object):
 		const=True, default=False, nargs='?',
 		metavar='ini_name', help='(re|un)load inis'
 	)
-
 
 class Reload(mounts.CommandMount, LoadParser):
 	name = 'reload'
@@ -254,8 +268,9 @@ class Reload(mounts.CommandMount, LoadParser):
 		elif options.plugin:
 			plugins_to_load = [options.plugin]
 
-		plugins_to_load = [x for x in plugins_to_load
-						   if self.parent.plugin_changed(x)]
+		if not options.force:
+			plugins_to_load = [x for x in plugins_to_load
+							   if self.parent.plugin_changed(x)]
 		self.parent.unload_plugins(plugins_to_load)
 		loaded = self.parent.load_plugins(plugins_to_load)
 
