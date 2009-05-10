@@ -33,16 +33,17 @@ import	re
 import	shlex
 import	time
 
-from	common			import argparse, const, mounts, utils
-from	common.ini		import iMan
+from	common import argparse, const, mounts, utils
+from	common.ini import iMan
 
 class Init(mounts.PluginInitializers):
 	name = __file__
 
 	def initialize(self):
-		iMan.load('roster', utils.get_module())
+		iMan.load([utils.get_module(), 'roster'])
 
 	def __exit__(self, *args):
+		iMan.unload('roster')
 		mounts.PluginInitializers.remove(self.__class__)
 
 class HookRosterOnline(mounts.HookMount):
@@ -74,9 +75,9 @@ class HookRosterOffline(mounts.HookMount):
 	priority = const.PRIORITY_PERSISTANT
 
 	def thread(self, user, status):
-		iMan.roster[utils.getname(user).lower()].last_login = time.time()
-		iMan.roster[utils.getname(user).lower()].last_message = None
-		del iMan.roster[utils.getname(user).lower()].afk
+		roster = iMan.roster[utils.getname(user).lower()]
+		roster.last_login = time.time()
+		roster.last_message = None
 
 class HookRosterAFK(mounts.HookMount):
 	name = 'HookRosterAFK'
@@ -100,7 +101,8 @@ class HookRosterAFK(mounts.HookMount):
 		'%s, you come again soon, y\'hear!',
 		'%s, if you immediately know the candlelight is fire, the meal was cooked a long time ago.',
 		'FREEEEEEEEEEDOOOOOM! Say it with me, %s! FREEEEEEEEDOOOOOM!',
-		'They sent the last guy away in a small iron box! Please don\'t make the same mistake, %s!'
+		'They sent the last guy away in a small iron box! Please don\'t make the same mistake, %s!',
+		'Tallioh, %s!',
 	]
 
 	def thread(self, user, msg):
@@ -109,18 +111,18 @@ class HookRosterAFK(mounts.HookMount):
 			match = self.r.match(msg)
 			if msg.startswith('|') and msg.endswith('|'):
 				return False
-			if not match and roster.has_key('afk'):
-				del roster.afk
-				last_message = datetime.datetime.fromtimestamp(roster.last_message)
+			if not match and 'afk' in roster:
+				timestamp = datetime.datetime.fromtimestamp(roster.afk[1])
 				self.parent.sendto(
 					user, (random.choice(self.webies) + " You were gone for %s") % (
 						utils.getname(user),
-						utils.time_since(last_message, '.')
+						utils.time_since(timestamp, '.')
 					)
 				)
+				del roster.afk
 			elif match:
 				reason = match.group('reason')
-				roster.afk = reason
+				roster.afk = [reason, time.time()]
 				self.parent.sendto(user, random.choice(self.byes) % utils.getname(user))
 
 class CleanUp(mounts.CommandMount):
@@ -155,6 +157,14 @@ class LastSeen(mounts.CommandMount):
 	rank = const.RANK_USER
 	file = __file__
 
+	truncate_to = 16
+	if iMan.load([utils.get_module(), 'plugins', 'plugin_lastseen']):
+		if 'truncate_to' not in iMan.plugin_lastseen:
+			iMan.plugin_lastseen.truncate_to = truncate_to
+		else:
+			truncate_to = iMan.plugin_lastseen.truncate_to
+		iMan.unload('plugin_lastseen')
+
 	lastseen_parser = argparse.ArgumentParser(prog='!lastseen', add_help=False)
 	lastseen_parser.add_argument('username', const=True, nargs='?',
 		metavar='username', help='Name of the user you\'re looking up.')
@@ -162,10 +172,17 @@ class LastSeen(mounts.CommandMount):
 	__doc__ = """Display the last time a user was on.\n%s""" % (lastseen_parser.format_help())
 
 	def thread(self, user, args, whisper):
-		try:
-			args = self.lastseen_parser.parse_args(shlex.split(args))
-		except:
-			args = None
+		# Sterilize the name to prevent abuse.
+		if False:
+			if ' ' in args:
+				args, _ = args.split(' ', 1)
+			if len(args) > self.truncate_to:
+				args = args[:self.truncate_to]
+		else:
+			try:
+				args = self.lastseen_parser.parse_args(shlex.split(args))
+			except:
+				args = None
 
 		if not args or not args.username:
 			raise const.CommandHelp
@@ -179,43 +196,37 @@ class LastSeen(mounts.CommandMount):
 
 		#The target is the calling user.
 		if username.lower() == name:
-			reply = "are you really that conceited? You're right here!"
+			reply += "are you really that conceited? You're right here!"
 
 		# We've never seen the target before.
-		elif not roster.has_key('last_login'):
+		elif not roster:
 			reply += "who is %s?" % (orig_name)
 
-		# The target is online.
-		elif roster.last_login is None:
-			try:
-				last_message = datetime.datetime.fromtimestamp(roster.last_message)
-			except TypeError:
-				last_message = None
-
-			if roster.has_key('afk'):
-				reply += "%s went AFK %s" % (orig_name, utils.time_since(last_message))
-				if roster.afk:
-					reply += " and is %s" % roster.afk
-
-				reply += "."
+		# The user is AFK. AFK status is persistent across statuses
+		elif 'afk' in roster:
+			timestamp = datetime.datetime.fromtimestamp(roster.afk[1])
+			sentence = "%s%%s went AFK %s" % (orig_name, utils.time_since(timestamp))
+			# If the user is online
+			if roster.last_login is None:
+				reply += sentence % ''
 			else:
-				if not last_message:
-					reply += "%s hasn't spoken a word since he logged on." % orig_name
-				else:
-					reply += '%s spoke %s' % (orig_name, utils.time_since(last_message))
-			#reply = '%s, %s is currently online.' % (username, orig_name)
+				reply += sentence % "(offline)"
 
-		# NoneTypes are read as strings, these will be read for people who went
-		# offline after the bot went offline. They'll be added back in once they
-		# are seen by the bot again.
-		elif iMan.roster[name].last_login == "None":
-			reply += "I don't know when %s went offline. I was sleeping. " \
-					"I'm sorry." % (orig_name)
-			#self.sendtoall("I find my lack of %s disturbing." % name)
+			if roster.afk[0]:
+				reply += " and is %s" % roster.afk[0]
+			reply += "."
 
-		# If the target is not online.
+		# We see the user as online
+		elif 'last_login' in roster and roster.last_login is None:
+			if not roster.last_message:
+				reply += "%s hasn't spoken a word since he logged on." % orig_name
+			else:
+				timestamp = datetime.datetime.fromtimestamp(roster.last_message)
+				reply += '%s spoke %s' % (orig_name, utils.time_since(timestamp))
+
+		# The user is offline
 		else:
-			then = datetime.datetime.fromtimestamp(iMan.roster[name].last_login)
+			then = datetime.datetime.fromtimestamp(roster.last_login)
 			reply += 'I saw %s %s' % (orig_name, utils.time_since(then))
 
 		if whisper:
