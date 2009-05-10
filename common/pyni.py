@@ -34,17 +34,25 @@ import os
 from collections import defaultdict
 from StringIO import StringIO
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 def sterilize_comment(comment):
-	# Make sure the comment can't be used to inject values.
-	if not comment.startswith('#'):
-		comment = '# ' + comment
+	"""Sterilize all lines of a comment.
 
-	# Make sure the comment doesn't absorb the section.
-	if not comment.endswith('\n'):
-		comment += '\n'
-	return comment
+	Make sure all lines start with a comment delimiter and end with a newline.
+
+	"""
+	comments = comment.splitlines(True)
+	for index, comment in enumerate(comments):
+		# Make sure the comment can't be used to inject values.
+		if not comment.startswith('#'):
+			comment = '# ' + comment
+
+		# Make sure the comment doesn't absorb the section.
+		if not comment.endswith('\n'):
+			comment += '\n'
+		comments[index] = comment
+	return ''.join(comments)
 
 class ConfigNode(defaultdict):
 	def __init__(self):
@@ -127,7 +135,7 @@ class ConfigRoot(ConfigNode):
 	def parse_config(self, clear=True):
 		if not os.path.exists(self._filename):
 			print "Creating %s" % self._filename
-		with file(self._filename, 'a+') as f:
+		with open(self._filename, 'a+') as f:
 			self.parse_config_file(f, clear)
 
 	def parse_config_list(self, list_, clear=True):
@@ -203,17 +211,24 @@ if __name__ == '__main__':
 		print "DEBUG: Parsing File (%s)" % input
 		c.parse_config()
 	except IOError, e:
-		print "DEBUG: Empty/Unknown File"
-		print "DEBUG: Using Defaults"
-		c.breakfast = ['bacon', 'eggs', 'pancakes', 'orange juice']
-		c.x = 3.14159
-		c.y = '\nThe "quick"\nbrown fox\njumps over\nthe \'lazy\' dog.\n'
-		c.z = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8}
-		c.server.username = 'iPal'
-		c.server.password = 'ipfreely'
-		c.server.ports.jabber = 5222
-		c.server.ports.telnet = 23
-		c.server.ports.http = 80
+		pass
+	finally:
+		if not c:
+			print "DEBUG: Empty/Unknown File"
+			print "DEBUG: Using Defaults"
+			c._comments['breakfast'] = 'This sounds like a lovely breakfast ^^'
+			c.breakfast = ['bacon', 'eggs', 'pancakes', 'orange juice']
+			c.x = 3.14159
+			c._comments['y'] = "Contains every letter in the alphabet!"
+			c.y = '\nThe "quick"\nbrown fox\njumps over\nthe \'lazy\' dog.\n'
+			c.z = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8}
+			c.server._comments['__root__'] = 'These aren\'t my real credentials, HAHAHA'
+			c.server.username = 'iPal'
+			c.server.password = 'ipfreely'
+			c.server.ports._comments['jabber'] = 'Don\'t forget about the old 5223 jabber port.\nI believe it was used as a security port.'
+			c.server.ports.jabber = 5222
+			c.server.ports.telnet = 23
+			c.server.ports.http = 80
 	#print "First Parse:\n%s\n" % c
 	print "DEBUG: Saving File (%s)" % output
 	c.save(output)
