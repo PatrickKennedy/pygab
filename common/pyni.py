@@ -34,7 +34,17 @@ import os
 from collections import defaultdict
 from StringIO import StringIO
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
+
+def sterilize_comment(comment):
+	# Make sure the comment can't be used to inject values.
+	if not comment.startswith('#'):
+		comment = '# ' + comment
+
+	# Make sure the comment doesn't absorb the section.
+	if not comment.endswith('\n'):
+		comment += '\n'
+	return comment
 
 class ConfigNode(defaultdict):
 	def __init__(self):
@@ -86,19 +96,13 @@ class ConfigNode(defaultdict):
 					stream.write('\n')
 					# Attach section comments to the header.
 					if '__root__' in self._comments:
-						stream.write(self._comments['__root__'])
-						# Make sure the comment doesn't absorb the section
-						if not self._comments['__root__'].endswith('\n'):
-							stream.write('\n')
+						stream.write(sterilize_comment(self._comments['__root__']))
 					[stream.write("[%s]\n" % parent) for parent in parents]
 					buffered_parents = True
 
 				# Attach value comments to each value.
 				if key in self._comments:
-					stream.write(self._comments[key])
-					# Make sure the comment doesn't absorb the assignment
-					if not self._comments[key].endswith('\n'):
-						stream.write('\n')
+					stream.write(sterilize_comment(self._comments[key]))
 				stream.write("%s = %r\n" % (key, value))
 
 		# Walk through all sub-sections, appending and poping to emulate depth.
@@ -163,6 +167,7 @@ class ConfigRoot(ConfigNode):
 			in_header = False
 			key, value = line.split('=', 1)
 			key, value = key.strip(), value.strip()
+			# TODO: Upgrade to ast.eval_literal in Python 2.6
 			node[key] = eval(compile(value, self._filename + ' line: %d' % (index+1), 'eval'))
 
 			if comment_lines:
