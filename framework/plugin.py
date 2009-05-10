@@ -30,6 +30,7 @@
 from __future__ import with_statement
 
 import	os
+import	re
 import	sys
 import	traceback
 
@@ -66,6 +67,13 @@ class PluginFramework(object):
 	Easily integrate plugins into any bot.
 
 	"""
+
+	# Used to check if the user wants to redirect the output of a command
+	# to another user.
+	redirect_check = re.compile('\<(?P<user>.*)\>')
+
+	# Used to check if the caller wants to mimic another user.
+	mimic_check = re.compile('\[(?P<user>.*)\]')
 
 	def __init__(self):
 		#Plugin hashing dictionary
@@ -158,7 +166,7 @@ class PluginFramework(object):
 		# interpreter when it executes a string.
 		# We're using __file__ to know what command classes to unload.
 		plugin = {'__file__':path_}
-		exec a in plugin
+		exec compile(a, 'plugin_%s.py' % name, 'exec') in plugin
 		# If the plugin has any initialization to be run, handle that here.
 		initializer = mounts.PluginInitializers.plugins.get(path_)
 		if initializer:
@@ -263,10 +271,20 @@ class PluginFramework(object):
 		else:
 			cmd = msg.strip().lower()
 		#FIXME: This is a work around for shlex's poor unicode support.
-		args = args.encode(sys.getdefaultencoding(),"replace")
+		#args = unicode(args, 'utf-8', 'replace')
+		args = args.encode('utf-8', 'replace')
 
-		if utils.getname(user).lower() in iMan.config.users.banned:
-			return
+		# <<name>> Prefix. Used by the bot to redirect a whispers output to <name>
+		m = self.redirect_check.search(cmd)
+		if m:
+			self.redirect_to_user = m.group('user')
+			cmd = self.redirect_check.sub('', cmd)
+
+		# [<name>] Prefix. Replaces the calling user with the jid of <name>.
+		m = self.mimic_check.search(cmd)
+		if m and utils.has_attr(utils.getname(user).lower(), 'rank', const.RANK_ADMIN):
+			user = utils.getjid(m.group('user'))
+			cmd = self.mimic_check.sub('', cmd)
 
 		try:
 			cmd_func = mounts.CommandMount.plugins.get(cmd)
@@ -283,7 +301,7 @@ class PluginFramework(object):
 			#assert isinstance(cmd, CommandMount)
 
 			authorized = True
-			if cmd_func.rank == const.RANK_USER:
+			if cmd_func.rank in [const.RANK_USER, const.RANK_HIDDEN]:
 				pass
 
 			elif cmd_func.rank == const.RANK_MOD:
