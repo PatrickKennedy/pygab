@@ -34,7 +34,6 @@
 from __future__ import with_statement
 
 import	datetime
-import	dict4ini
 import	errno
 import	os
 import	re
@@ -42,8 +41,8 @@ import	sys
 import	time
 import	traceback
 
-from 	common.ini		import	iMan
-from	xmpp.protocol	import	JID
+from 	common.ini		import iMan
+from	xmpp.protocol	import JID
 
 #Command exception classes
 class CommandHelp(Exception):pass
@@ -175,6 +174,10 @@ def add_attr(jid, attr, rank):
 def set_attr(jid, attr, rank):
 	"""Set 'jid's attr to value."""
 	return iMan.set_entry('roster', jid, attr, value)
+
+def isbanned(user): return has_attr(getname(user).lower(), 'rank', 'banned')
+def ismod(user): return has_attr(getname(user).lower(), 'rank', 'mod')
+def isadmin(user): return has_attr(getname(user).lower(), 'rank', 'admin')
 
 #=====
 #= Misc (Ordered Alphabetically)
