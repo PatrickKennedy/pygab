@@ -104,7 +104,9 @@ class Mail(mounts.CommandMount):
 				"Usage: !mail <get|check|username message> "
 
 	def thread(self, user, args, whisper):
-		args = args.split(' ')
+		if not args:
+			raise const.CommandHelp
+		args = args.split(' ', 1)
 		cmd, message = args[0], args[1:]
 		cmd = cmd.lower()
 		username = utils.getname(user).lower()
@@ -114,8 +116,6 @@ class Mail(mounts.CommandMount):
 				letters = iMan.mail[username].items()
 				# Only take the top letter.
 				sender, message = letters[0]
-				if isinstance(message, list):
-					message = ' '.join(message)
 
 				self.parent.sendto(user, "%s says '%s'" % (sender, message))
 				self.parent.sendto(
@@ -141,6 +141,8 @@ class Mail(mounts.CommandMount):
 			)
 
 		else:
+			if not message:
+				raise const.CommandHelp
 			target = cmd.lower()
 			if target == iMan.config.server.displayname.lower():
 				self.parent.sendto(user, "Why do you need to send me mail?")
