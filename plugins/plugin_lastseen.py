@@ -77,7 +77,7 @@ class HookRosterOffline(mounts.HookMount):
 	def thread(self, user, status):
 		roster = iMan.roster[utils.getname(user).lower()]
 		roster.last_login = time.time()
-		roster.last_message = None
+		#roster.last_message = None
 
 class HookRosterAFK(mounts.HookMount):
 	name = 'HookRosterAFK'
@@ -160,6 +160,8 @@ class LastSeen(mounts.CommandMount):
 	truncate_to = 16
 	if iMan.load([utils.get_module(), 'plugins', 'plugin_lastseen']):
 		if 'truncate_to' not in iMan.plugin_lastseen:
+			iMan.plugin_lastseen._comments['truncate_to'] = \
+				"Truncate passed names to x characters.\nWon't truncate if 0."
 			iMan.plugin_lastseen.truncate_to = truncate_to
 		else:
 			truncate_to = iMan.plugin_lastseen.truncate_to
@@ -173,23 +175,23 @@ class LastSeen(mounts.CommandMount):
 
 	def thread(self, user, args, whisper):
 		# Sterilize the name to prevent abuse.
-		if False:
+		if self.truncate_to:
 			if ' ' in args:
 				args, _ = args.split(' ', 1)
 			if len(args) > self.truncate_to:
 				args = args[:self.truncate_to]
-		else:
+		elif False:
 			try:
 				args = self.lastseen_parser.parse_args(shlex.split(args))
 			except:
 				args = None
 
-		if not args or not args.username:
+		if not args:
 			raise const.CommandHelp
 		username = utils.getname(user)
 
-		orig_name = args.username
-		name = args.username.lower()
+		orig_name = args
+		name = args.lower()
 		roster = iMan.roster[name]
 
 		reply = '%s, ' % username
@@ -229,7 +231,7 @@ class LastSeen(mounts.CommandMount):
 			then = datetime.datetime.fromtimestamp(roster.last_login)
 			reply += 'I saw %s %s' % (orig_name, utils.time_since(then))
 
-		if whisper:
+		if False and whisper:
 			self.parent.sendto(user, reply)
 		else:
 			self.parent.sendtoall(reply)
