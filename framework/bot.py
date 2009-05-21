@@ -105,9 +105,10 @@ class BotFramework(object):
 			conres = self.client.connect(server, proxy, use_srv=use_srv, secure=secure)
 		else:
 			conres = self.client.connect()
+
 		if not conres:
 			raise const.ConnectError(server)
-		if conres != 'tls':
+		if secure and conres != 'tls':
 			print "Warning: Unable to estabilish secure connection - TLS failed!"
 
 		#self.client.disconnect_handlers = []
@@ -167,6 +168,8 @@ class BotFramework(object):
 				break
 			except AttributeError, e:
 				traceback.print_exc()
+				if not e.message.lower().count('client'):
+					continue
 				try:
 					self.stop()
 					self.reconnect()
@@ -509,6 +512,7 @@ class BotFramework(object):
 			print pres
 
 		pres_type = pres.getType()
+		pres_show = pres.getShow()
 		msg = pres.getStatus() or ""
 
 		# Deal with subscription etc
@@ -516,7 +520,7 @@ class BotFramework(object):
 			presTypes1[pres.getType()](user, msg)
 
 		# Deal with away/chat/dnd/xa
-		elif pres_type in presShows:
+		elif pres_show in presShows:
 			presShows[pres.getShow()](user, msg)
 
 		# they're "just" online
@@ -528,7 +532,9 @@ class BotFramework(object):
 			presTypes2[pres.getType()](user, msg)
 
 		else:
-			print "Unknown Presence:", user, "\nType:",`pres.getType()`, " Show:",`pres.getShow()`, "\nStatus:",`pres.getStatus()`, "\nMessage:",msg
+			print "Unknown Presence: %s\nType: %r Show: %r\nStatus: %r" \
+				"\nMessage: %s" % (user, pres_type, pres_show,
+								   pres.getStatus(), msg)
 
 	def _iqcb(self, conn, iq):
 		self.last_stanza = iq
