@@ -51,7 +51,7 @@ class Init(mounts.PluginInitializers):
 		iMan.load([utils.get_module(), 'roster'])
 
 	def __exit__(self, *args):
-		iMan.unload('roster', save=True)
+		iMan.unload('roster')
 		mounts.PluginInitializers.remove(self.__class__)
 
 class Calc(mounts.CommandMount):
@@ -62,6 +62,7 @@ class Calc(mounts.CommandMount):
 	__doc__ = "Calculate a mathematical expression. \nSupports variables x, y, and z. \nEx. x=5;y=2;x**y"
 
 	def format(self, e):
+		"""Format the expression to set the final value to 'a'"""
 		if ';' in e:
 			x = e.rfind(';')
 			e = e[:x+1]+'a='+e[x+1:]
@@ -77,6 +78,8 @@ class Calc(mounts.CommandMount):
 		Example: /calc ((1 + 2) * 2) / 2
 
 		"""
+		if not e:
+			raise const.CommandHelp
 		username = utils.getname(user)
 		answer = {}
 		try:
@@ -88,15 +91,15 @@ class Calc(mounts.CommandMount):
 			return
 		except ZeroDivisionError:
 			if whispered:
-				self.parent.sendto(user, 'Why are you hiding your attempts to'
-								   'crash the Universe? Try that where everyone'
+				self.parent.sendto(user, 'Why are you hiding your attempts to '
+								   'crash the Universe? Try that where everyone '
 								   'can see it, foo!')
 			else:
 				self.parent.sendtoall('%s just tried to divide by zero. Stone him.' % username)
 			return
 
 		answer = answer['a']
-		if whispered:
+		if self.parent.was_whispered:
 			self.parent.sendto(user, '"%s" => %s' % (e, answer))
 		else:
 			self.parent.sendtoall('%s: "%s" => %s' % (username, e, answer))
@@ -115,14 +118,15 @@ class Roll(mounts.CommandMount):
 	rank = const.RANK_USER
 	file = __file__
 
-
+	__doc__ = "Rolls a random number. " \
+		   "Usage: !roll [<number of dice>[d<number of sides>]]"
 	def thread(self, user, args, whispered):
-		"""Rolls a random number.
-		Usage: )dice [[<number of dice>][d<number of sides>]]
-		Example: /dice 2d10"""
+		""""""
 		dice = 1
 		sides = 6
-		total = []
+		rolls = []
+		percentile = False
+		rounded_percentile = False
 
 		if args:
 			if 'd' in args:
@@ -132,60 +136,86 @@ class Roll(mounts.CommandMount):
 			else:
 				dice = args
 
-			if dice.isdigit() and sides.isdigit():
-				dice, sides = int(dice), int(sides)
-				if dice > 5:
-					dice = 5
-					self.parent.error(user, "The number of sides has been set to 25.")
-				elif dice < 1:
-					dice = 1
-					self.parent.error(user, "The number of dice has been set to 1.")
+			if sides == '%':
+				percentile = True
+				# Only roll for the tens place.
+				if dice == '1':
+					rounded_percentile = True
+				sides = 10
+				dice = 2
 
-				if sides > 100:
-					sides = 100
-					self.parent.error(user, "The number of sides has been set to 100.")
-				elif sides < 4 and sides != 2:
-					sides = 4
-					self.parent.error(user, "The number of sides has been set to 4.")
-			else:
+			try:
+				dice = int(dice)
+				sides = int(sides)
+			except:
 				self.parent.error(user, self.__doc__)
 				return
 
+			dice, sides = int(dice), int(sides)
+			if dice > 5:
+				dice = 5
+				self.parent.error(user, "The number of dice has been set to 5.")
+			elif dice < 1:
+				dice = 1
+				self.parent.error(user, "The number of dice has been set to 1.")
+
+			if sides > 100:
+				sides = 100
+				self.parent.error(user, "The number of sides has been set to 100.")
+			elif 2 != sides < 4:
+				sides = 4
+				self.parent.error(user, "The number of sides has been set to 4.")
+
 
 		for i in xrange(dice):
-			random.jumpahead(5)
-			total.append(random.randrange(1, sides + 1))
+			random.jumpahead(500)
+			rolls.append(random.randint(1, sides))
 
-		if sides != 2:
-			total = reduce(operator.add, total)
+		if percentile:
+			# Adjust for percentile dice which are 0-9
+			rolls[0] -= 1
+			rolls[1] -= 1
+			# Handle double zeros which are 100%
+			if not rolls[0] and not rolls[1]:
+				total = 100
+			else:
+				if rounded_percentile:
+					rolls[1] = 0
+				total = (rolls[0]*10) + rolls[1]
+			self.parent.sendtoall("%s rolled %d%%" % (utils.getname(user), total))
 
-		if sides == 2:
+		elif sides != 2:
+			total = reduce(operator.add, rolls)
+			self.parent.sendtoall("%s rolled %d with %dd%d" % (
+				utils.getname(user), total, dice, sides))
+
+		# If sides == 2, handles coin flips.
+		else:
+			if dice == 1:
+				self.parent.sendtoall("%s flipped a coin that landed on %s" % (
+					utils.getname(user), rolls[0] == 1 and "Heads" or "Tails"))
+				return
+
 			heads = 0
 			tails = 0
-			for x in total:
+			for x in rolls:
 				if x == 1:
 					heads += 1
 				else:
 					tails += 1
-			if dice > 1:
-				self.parent.sendtoall("%s flipped a coin %d times which"
-									  " landed on Heads %d times and Tails"
-									  " %d times." % (
-					utils.getname(user), dice, heads, tails))
-			else:
-				self.parent.sendtoall("%s flipped a coin that landed on %s" % (
-					utils.getname(user), total[0] == 1 and "Heads" or "Tails"))
-		else:
-			self.parent.sendtoall("%s rolled %d with %dd%d" % (
-				utils.getname(user), total, dice, sides))
 
-		if False:
-			self.systoall("%s rolls %s with %s %s-sided %s\n%s" % (
-					getnickname(user),
-					reduce(operator.add, total),
-					dice == 1 and "a" or dice,
-					sides,
-					dice and "die" or "dice",
-					reduce((lambda x, y: str(x) + " | " + str(y)), total)
-				)
+			self.parent.sendtoall(
+				"%s flipped a coin %d times which landed on Heads %d times and "
+				"Tails %d times." % (utils.getname(user), dice, heads, tails)
 			)
+
+		return
+		self.systoall("%s rolls %s with %s %s-sided %s\n%s" % (
+				getnickname(user),
+				reduce(operator.add, total),
+				dice == 1 and "a" or dice,
+				sides,
+				dice and "die" or "dice",
+				reduce((lambda x, y: str(x) + " | " + str(y)), total)
+			)
+		)
