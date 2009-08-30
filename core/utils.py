@@ -116,13 +116,12 @@ def getname(jid):
 def getnickname(jid):
 	"""getnickname(xmpp.protocol.JID jid) -> unicode
 
-	Converts a user@domain/resource to a displayable nickname.
+	Converts a user@domain/resource a possibly user-defined nickname.
 
 	"""
 	# Make sure all JIDs are stardized to be JID objects.
 	# They're much easier to manipulate.
 	assert isinstance(jid, JID)
-	domain = iMan.config.server.domain
 
 	if has_nick(jid):
 		return get_nick(jid)
@@ -175,6 +174,22 @@ def set_attr(jid, attr, rank):
 	"""Set 'jid's attr to value."""
 	return iMan.set_entry('roster', jid, attr, value)
 
+def is_user(bot, user):
+	"Return True if the user exists in the bot."
+	user = getjid(user)
+	try:
+		return bot.getJidStatus(user).items() != None
+	except:
+		return False
+
+def is_online(bot, user):
+	"Return true if the user is online."
+	user = getjid(user)
+	try:
+		return bot.getJidStatus(user).items != []
+	except:
+		return False
+
 def isbanned(user): return has_attr(getname(user).lower(), 'rank', 'banned')
 def ismod(user): return has_attr(getname(user).lower(), 'rank', 'mod')
 def isadmin(user): return has_attr(getname(user).lower(), 'rank', 'admin')
@@ -217,23 +232,6 @@ def split_target(target):
 
 def is_plugin(args):
 	return args in iMan.config.system.plugins.split(" ")
-
-def isuser(bot, user):
-	"Return True if the user exists in the bot."
-	user = getjid(user)
-	try:
-		return bot.getJidStatus(user).items() != None
-	except:
-		return False
-
-def isonline(bot, user):
-	"Return true if the user is online."
-	user = getjid(user)
-	try:
-		return bot.getJidStatus(user).items != []
-	except:
-		return False
-
 
 #=====================================
 #=         Chat Filter Tools         =
@@ -278,7 +276,7 @@ def clean_string(string):
 #========================
 #=         Misc         =
 #========================
-def sortdict(dict, item = "key"):
+def sortdict(dict, item="key"):
 	"Returns an alphabetical list of keys, values, or both,"
 	if item.startswith('key'):
 		return dict.keys().sort()
@@ -289,7 +287,7 @@ def sortdict(dict, item = "key"):
 def confirmdir(path):
 	if not os.path.isdir(path):
 		os.mkdir(path)
-		print "ALERT: A directory doesn't exist, making folder \""+ path +"\""
+		print "ALERT: A directory doesn't exist, making folder \"%s\"" % path
 	return
 
 def open_if_exists(filename, mode='r'):
@@ -303,8 +301,9 @@ def open_if_exists(filename, mode='r'):
 		if e.errno not in (errno.ENOENT, errno.EISDIR):
 			raise
 
-def _s(i):
-	return (i != 1 and 's' or '')
+def pluralize(i, plural_form='s'):
+	"""Return 'plural_form' if i != 1"""
+	return (i != 1 and plural_form or '')
 
 def date_diff(then):
 	"""date_diff(then: datetime.datetime) -> str
@@ -336,37 +335,50 @@ def date_diff(then):
 		if seconds < 5:
 			return 'a moment ago'
 		if seconds < 60:
-			return '%d second%s ago' % (seconds, _s(seconds))
+			return '%d second%s ago' % (seconds, pluralize(seconds))
 		if minutes < 60:
-			return '%d minute%s ago' % (minutes, _s(minutes))
+			return '%d minute%s ago' % (minutes, pluralize(minutes))
 
 		return then.strftime('Today, %H:%M GMT')
 
 	return then.strftime('%A, %H:%M GMT')
 
-def time_since(then, suffix=' ago'):
-	diff = (datetime.datetime.now() - then)
-	seconds = diff.seconds
-	minutes = seconds / 60
-	hours = minutes / 60
-	days = diff.days
+def time_since(then, suffix=' ago', depth=2):
+	"""Return a human readable difference between two datetimes.
 
-	if days < 1:
-		if seconds < 5:
-			time = 'a moment'
-		elif seconds < 60:
-			time = '%d second%s' % (seconds, _s(seconds))
-		elif minutes < 60:
-			time = '%d minute%s' % (minutes, _s(minutes))
-		elif hours < 24:
-			time = '%s hour%s' % (hours, _s(hours))
+	Arguemnts:
+	then - datetime object representning a time before now.
+	suffix - A string to be appended to the returned string.
+	depth - How many levels of time to traverse and display beginning form days.
+
+	"""
+	diff = (datetime.datetime.now() - then)
+	# Each of the levels uses modulus to get the relative amount of time.
+	# Other wise we end up with things like '1 hour, 80 minutes and 4857 seconds ago'
+	levels = [
+		(diff.days, '%d day%s'),
+		(((diff.seconds / 60) / 60) % 24, '%d hour%s'),
+		((diff.seconds / 60) % 60, '%d minute%s'),
+		(diff.seconds % 60, '%d second%s')
+	]
+	time_list = []
+	time_str = ''
+
+	for level, descriptor in levels:
+		if not level:
+			continue
+		time_list.append(descriptor % (level, pluralize(level)))
+		depth -= 1
+		if depth <= 0:
+			break
+
+	# If there are multiple times we need to throw "and" into the sentence.
+	if len(time_list) > 1:
+		time_str = ', '.join(time_list[:-1]) +', and '+ time_list[-1]
 	else:
-		if hours:
-			time = '%d day%s and %d hour%s' % (days, _s(days),
-												   hours, _s(hours))
-		else:
-			time = 'exactly %d day%s' % (days, _s(days))
-	return time+suffix
+		time_str = time_list[0]
+
+	return time_str + suffix
 
 def get_svn_revision():
 	"""get_svn_revision() -> str
