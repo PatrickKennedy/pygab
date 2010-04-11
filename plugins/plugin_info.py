@@ -74,7 +74,7 @@ class Help(mounts.CommandMount):
 
 
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		args = self.help_parser.parse_args(shlex.split(args))
 		if args.cmd:
 			if args.cmd in mounts.CommandMount.plugins.keys():
@@ -118,7 +118,7 @@ class Help(mounts.CommandMount):
 		self.parent.sendto(user,reply)
 
 
-class Names():#CommandMount):
+class Names(mounts.CommandMount):
 	name = 'w'
 	rank = const.RANK_USER
 	file = __file__
@@ -131,7 +131,7 @@ class Names():#CommandMount):
 	__doc__ = """List status of users.\n%s""" % (name_parser.format_help())
 
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		statuses ={
 			'admins' : [],
 			'online' : [],
@@ -141,50 +141,52 @@ class Names():#CommandMount):
 			'busy' : []
 		}
 
-		for i in self.parent.getRoster():
-			i = getjid(i)
-			name = getnickname(i)
+		for sid in self.parent.getRoster():
+			i = utils.getjid(sid)
+			name = utils.getnickname(i)
 			if name == iMan.config.server.username:
 				continue
-			jidStatus = self.parent.getJidStatus(i).items()
-			if jidStatus != []:
-				for who,(status,display) in jidStatus:
-					if '@' not in unicode(who):
+
+			if not utils.isonline(self.parent, sid):
+				#statuses['offline'].append('(%s)' % name)
+				continue
+
+			jid_status = self.parent.getJidStatus(sid)
+
+			for who,(status,display) in jid_status.iteritems():
+				if '@' not in unicode(who):
+					continue
+				if utils.isbanned(who):
+						name = "#%s" % name
 						continue
-					if has_rank(who, 'banned'):
-							name = "#%s" % name
-							continue
 
-					if [(jid, msg) for (jid, (status, msg)) in jidStatus if status in ["online","chat"]]:
-						if has_rank(who, 'admin'):
-							name = "@%s" % name
-							statuses['admins'].append(name)
-						elif has_rank(who, 'mod'):
-							name = "%"+"%s" % name
-							statuses['admins'].append(name)
-						else:
-							statuses['online'].append(name)
-						break
+				if utils.isactive(self.parent, who):
+					if utils.isadmin(who):
+						name = "@%s" % name
+						#statuses['admins'].append(name)
+					elif utils.ismod(who):
+						name = "%"+"%s" % name
+						#statuses['admins'].append(name)
+					statuses['online'].append(name)
+					break
 
-					#Anyone not "available".
-					elif [(jid, msg) for (jid, (status, msg)) in jidStatus if status in [u"away",u"dnd",u"xa"]]:
-						if status in [u"away",u"xa"]:
-							name = "-%s" % name
-							statuses['idle'].append(name)
-						elif status == u"dnd":
-							name = "!%s" % name
-							statuses['busy'].append(name)
-						break
-			else:
-				pass#statuses['offline'].append('(%s)' % name)
+				#Anyone not "available".
+				elif utils.isaway(self.parent, who):
+					if status in [u"away",u"xa"]:
+						name = "-%s" % name
+						statuses['idle'].append(name)
+					elif status == u"dnd":
+						name = "!%s" % name
+						statuses['busy'].append(name)
+					break
 
 		# Setup the header with a header for total number of users.
-		reply = 'Users: (%s)\n'
+		reply = 'Users (%s):\n'
 		total = 0
 		for status, users in statuses.iteritems():
 			if not users:
 				continue
-			reply += '%s: (%s)\n%s\n\n' % (status, len(users), ' '.join(users))
+			reply += '%s (%s): %s\n' % (status, len(users), ' '.join(users))
 			total += len(users)
 
 		# Tack on the total number of users.
