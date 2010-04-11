@@ -77,15 +77,16 @@ class IniManager(object):
 	def __delitem__(self, name):
 		return delattr(self, name)
 
-	def load(self, ini_path, *subfolders):
+	def load(self, *ini_path):
 		"""load_ini(ini_path: list) -> Bool
 
 		Loads 'name'.ini making it available for use.
 		Return True if 'name'.ini loaded properly.
 
 		"""
-		if isinstance(ini_path, basestring):
-			ini_path = [ini_path]
+		ini_path = list(ini_path)
+		if isinstance(ini_path[0], list):
+			ini_path = ini_path[0]
 		name = ini_path.pop().lower()
 
 		if self.loaded(name):

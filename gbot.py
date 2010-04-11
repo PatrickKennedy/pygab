@@ -54,7 +54,8 @@ from	common.ini 	import iMan
 from	framework	import BotFramework, PluginFramework
 from	gbot		import	*
 
-iMan.load('config', utils.get_module())
+
+iMan.load(utils.get_module(), 'config')
 # Contains all the server information
 server = iMan.config.server
 
