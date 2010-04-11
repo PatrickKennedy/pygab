@@ -53,7 +53,7 @@ class PluginInitializers:
 
 	=====  =====================================================================
 	name   The path to the plugin. You may use __file__.
-	       (The base class for each mount stores classes by their name attribute
+		   (The base class for each mount stores classes by their name attribute
 		   so we use it here so we don't have to iterate over the dictionary
 		   when we unload the plugin.)
 
@@ -125,15 +125,15 @@ class CommandMount:
 		self._thread = thread_base(self.thread)()
 		self._thread.send(None)
 
-	def process(self, user, msg, whisper=False):
+	def process(self, user, msg):
 		try:
-			self._thread.send((user, msg, whisper))
+			self._thread.send((user, msg))
 		except StopIteration:
 			# A stop iteration typically means the thread threw an error
 			# We will see this after the error is thrown so we want to restart
 			# the thread, and then we'll reraise the StopIteration.
 			self.init_thread()
-			self._thread.send((user, msg, whisper))
+			self._thread.send((user, msg))
 			raise
 		except GeneratorExit:
 			CommandMount.remove(self)
@@ -159,7 +159,7 @@ class HookMount:
 	file      The absolute path to a file. You are able to use __file__.
 
 	priority  Hooks are processed in decending order based on their priority.
-	          Priorities are defined in /common/const.py.
+			  Priorities are defined in /common/const.py.
 			  The default priorities are Critical, Persistant, and Normal
 
 	========  =================================================================
@@ -207,18 +207,18 @@ class HookMount:
 	@staticmethod
 	def sort(iter):
 		"""Sort decending by each item's priority attribute."""
-		iter.sort(lambda x,y: cmp(x.priority, y.priority), reverse=True)
+		iter.sort(key=(lambda x: x.priority), reverse=True)
 		return iter
 
-	def process(self, user, msg):
+	def process(self, *args):
 		try:
-			return self._thread.send((user, msg))
+			return self._thread.send(args)
 		except StopIteration:
 			# A stop iteration typically means the thread threw an error
 			# We will see this after the error is thrown so we want to restart
 			# the thread, and then we'll reraise the StopIteration.
 			self.init_thread()
-			return self._thread.send((user, msg))
+			return self._thread.send(args)
 			raise
 		except GeneratorExit:
 			HookMount.remove(self)

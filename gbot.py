@@ -30,11 +30,13 @@
 from __future__ import with_statement
 
 import logging
-import	os
-import	sys
-import	time
-import	traceback
-import	xmpp
+import os
+import sys
+import time
+import traceback
+
+import xmpp
+import user
 
 def log(*args):
 	"""Replacement for print, which doesn't deal with unicode well"""

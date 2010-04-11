@@ -127,6 +127,7 @@ class Roll(mounts.CommandMount):
 		rolls = []
 		percentile = False
 		rounded_percentile = False
+		result_msg = ''
 
 		if args:
 			if 'd' in args:
@@ -182,20 +183,18 @@ class Roll(mounts.CommandMount):
 				if rounded_percentile:
 					rolls[1] = 0
 				total = (rolls[0]*10) + rolls[1]
-			self.parent.sendtoall("%s rolled %d%%" % (utils.getname(user), total))
+			result_msg = "rolled %d%%" % (total)
 
 		elif sides != 2:
 			total = reduce(operator.add, rolls)
-			self.parent.sendtoall("%s rolled %d with %dd%d" % (
-				utils.getname(user), total, dice, sides))
+			result_msg = "rolled %d (%s) with %dd%d" % (
+				total, ', '.join(['%s' % i for i in rolls]), dice, sides)
 
 		# If sides == 2, handles coin flips.
+		elif dice == 1:
+			result_msg = "flipped a coin that landed on %s" % (
+				rolls[0] == 1 and "Heads" or "Tails")
 		else:
-			if dice == 1:
-				self.parent.sendtoall("%s flipped a coin that landed on %s" % (
-					utils.getname(user), rolls[0] == 1 and "Heads" or "Tails"))
-				return
-
 			heads = 0
 			tails = 0
 			for x in rolls:
@@ -204,10 +203,13 @@ class Roll(mounts.CommandMount):
 				else:
 					tails += 1
 
-			self.parent.sendtoall(
-				"%s flipped a coin %d times which landed on Heads %d times and "
-				"Tails %d times." % (utils.getname(user), dice, heads, tails)
-			)
+			result_msg = ("flipped a coin %d times which landed on Heads %d "
+			"times and Tails %d times." % (dice, heads, tails))
+
+		if self.parent.was_whispered:
+			self.parent.sendto(user, 'You %s' % result_msg)
+		else:
+			self.parent.sendtoall('%s %s' % (utils.getname(user), result_msg))
 
 		return
 		self.systoall("%s rolls %s with %s %s-sided %s\n%s" % (

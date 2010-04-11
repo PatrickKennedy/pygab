@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 #
 #  PyGab - Python Jabber Framework
 #  Copyright (c) 2008, Patrick Kennedy

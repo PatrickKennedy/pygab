@@ -59,6 +59,17 @@ PRIORITY_PERSISTANT = 5
 PRIORITY_NORMAL = 0
 
 # Hook Locations
+# Only per_user and per_resource are currently implemented
+LOC_SEND_MSG 		= 'send_msg'
+# Receives the user and message stanza
+LOC_SEND_MSG_PER_MSG 	= 'send_msg_per_msg'
+# Receives the user and message stanza
+LOC_SEND_MSG_PER_USER 	= 'send_msg_per_user'
+# Receives the resource and message stanza
+LOC_SEND_MSG_PER_RESOURCE 	= 'send_msg_per_resource'
+LOC_SEND_MSG_PRE 	= 'send_msg_pre'
+LOC_SEND_MSG_POST 	= 'send_msg_post'
+
 # ev_msg passes the sender and the sent message as a string.
 LOC_EV_MSG		= 'ev_msg'
 LOC_EV_MSG_PRE	= 'ev_msg_pre'

@@ -31,10 +31,10 @@ from __future__ import with_statement
 
 import logging
 import logging.handlers
-import	os
-import	re
-import	sys
-import	traceback
+import os
+import re
+import sys
+import traceback
 
 from	common	import const, mounts, utils
 from	common.ini	import iMan
@@ -345,5 +345,5 @@ class PluginFramework(object):
 		except Exception, e:
 			print 'An error happened in the command: %s' % cmd
 			traceback.print_exc()
-			self.error(user, 'There was a problem with your command: %s. Sorry! '
+			self.error(user, 'There was a problem with your command: %s. Sorry! \n'
 						'Exception: %r' % (cmd, e))

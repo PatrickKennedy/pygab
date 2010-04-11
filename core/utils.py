@@ -174,25 +174,21 @@ def set_attr(jid, attr, rank):
 	"""Set 'jid's attr to value."""
 	return iMan.set_entry('roster', jid, attr, value)
 
-def is_user(bot, user):
-	"Return True if the user exists in the bot."
-	user = getjid(user)
-	try:
-		return bot.getJidStatus(user).items() != None
-	except:
-		return False
+def isbanned(user):
+	if False and iMan.loaded('roster'):
+		return 'banned' in iMan.config[getname(user).lower()].rank
+	return getname(user).lower() in iMan.config.users.banned
 
-def is_online(bot, user):
-	"Return true if the user is online."
-	user = getjid(user)
-	try:
-		return bot.getJidStatus(user).items != []
-	except:
-		return False
+def ismod(user):
+	if False and iMan.loaded('roster'):
+		return 'mod' in iMan.config[getname(user).lower()].rank
+	return getname(user).lower() in iMan.config.users.mod
 
-def isbanned(user): return has_attr(getname(user).lower(), 'rank', 'banned')
-def ismod(user): return has_attr(getname(user).lower(), 'rank', 'mod')
-def isadmin(user): return has_attr(getname(user).lower(), 'rank', 'admin')
+def isadmin(user):
+	if False and iMan.loaded('roster'):
+		return 'admin' in iMan.config[getname(user).lower()].rank
+	return getname(user).lower() in iMan.config.users.admin
+
 
 #=====
 #= Misc (Ordered Alphabetically)
@@ -231,7 +227,49 @@ def split_target(target):
 
 
 def is_plugin(args):
-	return args in iMan.config.system.plugins.split(" ")
+	return args in iMan.config.system.plugins
+
+def isuser(bot, user):
+	"Return True if the user exists in the bot."
+	user = getjid(user)
+	try:
+		return bot.getJidStatus(user).items() != None
+	except:
+		return False
+
+def isonline(bot, user):
+	"Return true if the user is online."
+	user = getjid(user)
+	try:
+		return bool(bot.getJidStatus(user).items())
+	except:
+		return False
+
+def isactive(bot, jid):
+	if not isonline(bot, jid):
+		return False
+
+	jid_status = bot.getJidStatus(jid)
+	if jid_status[jid][0] in ["online", "chat"]:
+		return True
+
+def isaway(bot, jid):
+	if not isonline(bot, jid):
+		return True
+
+	jid_status = bot.getJidStatus(jid)
+	if jid_status[jid][0] in ["away", "dnd", "xa"]:
+		return True
+
+
+	iMan.load('roster')
+	user = jid.getStripped()
+	try:
+		return 'afk' in iMan.roster[user]
+	finally:
+		iMan.unload('roster')
+
+
 
 #=====================================
 #=         Chat Filter Tools         =
@@ -357,8 +395,8 @@ def time_since(then, suffix=' ago', depth=2):
 	# Other wise we end up with things like '1 hour, 80 minutes and 4857 seconds ago'
 	levels = [
 		(diff.days, '%d day%s'),
-		(((diff.seconds / 60) / 60) % 24, '%d hour%s'),
-		((diff.seconds / 60) % 60, '%d minute%s'),
+		(((diff.seconds // 60) // 60) % 24, '%d hour%s'),
+		((diff.seconds // 60) % 60, '%d minute%s'),
 		(diff.seconds % 60, '%d second%s')
 	]
 	time_list = []
