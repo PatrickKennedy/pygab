@@ -51,25 +51,29 @@ def attach_hooks(hook_name=''):
 	"""Attach both pre- and -post hooks.
 
 	"""
+	def decorator(func):
+		def wrapper(self, *args):
+			self.hook('%s_pre' % (hook_name or func.__name__), *args)
+			func(self, *args)
+			self.hook('%s_post' % (hook_name or func.__name__), *args)
+		return wrapper
+	return decorator
 
-	def wrapper(self, *args):
-		self.hook(func.__name__+'_pre', *args)
-		func(self, *args)
-		self.hook(func.__name__+'_post', *args)
-	return wrapper
 
-def attach_post_hook(func):
+def attach_post_hook(hook_name=''):
 	"""Attach only the -post hook.
 
 	For use if there is a critical check before the pre- hook which requires it
 	to be defined within the function itself.
 
 	"""
+	def decorator(func):
+		def wrapper(self, *args):
+			func(self, *args)
+			self.hook('%s_post' % (hook_name or func.__name__), *args)
+		return wrapper
+	return decorator
 
-	def wrapper(self, *args):
-		func(self, *args)
-		self.hook(func.__name__+'_post', *args)
-	return wrapper
 
 class PluginFramework(object):
 	"""
