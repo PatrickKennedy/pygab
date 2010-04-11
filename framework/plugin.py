@@ -82,13 +82,6 @@ class PluginFramework(object):
 
 	"""
 
-	# Used to check if the user wants to redirect the output of a command
-	# to another user.
-	redirect_check = re.compile('\<(?P<user>.*)\>')
-
-	# Used to check if the caller wants to mimic another user.
-	mimic_check = re.compile('\[(?P<user>.*)\]')
-
 	def __init__(self):
 		#Plugin hashing dictionary
 		self._pluginhash = {}
@@ -280,13 +273,15 @@ class PluginFramework(object):
 				return False
 		return True
 
-	def command(self, user, msg, whisper=False):
+	def command_depreciated(self, user, text, msg):
 		args = ''
-		if " " in msg:
-			cmd, args = msg.split(" ",1)
+		text = text.strip()
+		if " " in text:
+			cmd, args = text.split(" ",1)
 			cmd = cmd.lower()
 		else:
-			cmd = msg.strip().lower()
+			cmd = text.lower()
+
 		#FIXME: This is a work around for shlex's poor unicode support.
 		#args = unicode(args, 'utf-8', 'replace')
 		args = args.encode('utf-8', 'replace')
@@ -299,7 +294,7 @@ class PluginFramework(object):
 
 		# [<name>] Prefix. Replaces the calling user with the jid of <name>.
 		m = self.mimic_check.search(cmd)
-		if m and utils.has_attr(utils.getname(user).lower(), 'rank', const.RANK_ADMIN):
+		if m and utils.isadmin(user):
 			user = utils.getjid(m.group('user'))
 			cmd = self.mimic_check.sub('', cmd)
 
