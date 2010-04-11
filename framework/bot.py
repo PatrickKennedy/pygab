@@ -461,65 +461,68 @@ class BotFramework(object):
 					to=to,status=msg,show='xa'))
 
 # Message related events
-	def ev_msg(self, user, text, raw_msg):
+	def ev_msg(self, msg):
 		"Override me: Called with new messages"
 		pass
 
 # Presence related events
-	def ev_subscribe(self, user, msg):
+	def ev_subscribe(self, pres):
 		"User requests to add you to their roster"
 		pass
 
-	def ev_subscribed(self, user, msg):
+	def ev_subscribed(self, pres):
 		"User has been added to the bots roster"
 		pass
 
-	def ev_unavailable(self, user, msg):
+	def ev_unavailable(self, pres):
 		"User went offline"
 		pass
 
-	def ev_unsubscribe(self, user, msg):
+	def ev_unsubscribe(self, pres):
 		"User requestes removal from their roster"
 		pass
 
-	def ev_unsubscribed(self, user, msg):
+	def ev_unsubscribed(self, pres):
 		"User has been removed from the bots roster"
 		pass
 
-	def ev_online(self, user, msg):
+	def ev_online(self, pres):
 		"User is now online"
 		pass
 
-	def ev_away(self, user, msg):
+	def ev_away(self, pres):
 		"User is away"
 		pass
 
-	def ev_chat(self, user, msg):
+	def ev_chat(self, pres):
 		"User is interested in chatting"
 		pass
 
-	def ev_dnd(self, user, msg):
+	def ev_dnd(self, pres):
 		"User is Do Not Disturb"
 		pass
 
-	def ev_xa(self, user, msg):
+	def ev_xa(self, pres):
 		"User is eXtended Away"
 		pass
 
 # Queries
-	def ev_iq(self, user, iq):
+	def ev_iq(self, iq):
 		"Information Query"
 		pass
 
 # Internal XMPP callbacks
 	def _msgcb(self, conn, mess):
 		"Internal: Recieve a message from the server"
+		mess.__class__ = pretty_stanza.PrettyMessage
+
 		#print mess
 		if mess.getError() != None:
 			if mess.getError() != "recipient-unavailable":
-				print """Message Error:
-	Message: %s
-	Error: %s""" % (mess.getBody(), mess.getError())
+				print "Message Error:"\
+				"\n  Message: %s"\
+				"\n  To: %s"\
+				"\n  Error: %s" % (mess.body, mess.to_user, mess.error)
 			return
 
 		if mess.getType() == "chat":
@@ -531,7 +534,7 @@ class BotFramework(object):
 
 		#Prevents "NoneTypes" from causing errors.
 		if text is not None:
-			self.ev_msg(user, text)
+			self.ev_msg(mess)
 
 	def _presencecb(self, conn, pres):
 		presTypes1={
@@ -549,6 +552,7 @@ class BotFramework(object):
 			"dnd"	: self.ev_dnd,
 			"xa"	: self.ev_xa,
 		}
+		pres.__class__ = pretty_stanza.PrettyPresence
 
 		user = pres.getFrom()
 		self.last_stanza = pres

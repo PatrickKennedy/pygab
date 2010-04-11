@@ -149,49 +149,41 @@ class ConferenceBot(BotFramework, PluginFramework):
 		"Send an error message to a user"
 		self.sendto(user, "ERROR: %s" % msg)
 
-	def ev_msg(self, user, msg, raw_msg):
-		user = utils.getjid(user.getStripped())
-		# Is this a command?
-		if msg[:1] in iMan.config.system.commandprefix:
-			self.command(user, msg[1:])
-		elif user != utils.getjid(server.username):
-			if self.hook(const.LOC_EV_MSG, user, msg):
-				# self.log("<%s> %s" % (getnickname(user), msg))
-				self.sendtoall("<%s> %s" % (utils.getnickname(user), msg),
-							   butnot=[unicode(user)]
-				)
+	def ev_msg(self, msg):
+		user = utils.getjid(msg.from_user.getStripped())
+		if user != utils.getjid(server.username):
+			if self.hook(const.LOC_EV_MSG, msg):
+				# TODO: Log all incoming to the console and
+				# all outgoing to a file.
+				logging.getLogger('pygab.chat').info('%s -> %s' % (
+					utils.getnickname(msg.from_user), msg.text
+				))
+				return
+			# self.log("<%s> %s" % (getnickname(user), msg))
+			text = '<%s> %s' % (utils.getnickname(msg.from_user), msg.text)
+			self.sendtoall(text, butnot=[unicode(user)])
 
-	def ev_iq(self, user, msg):
-		# Process persistant hooks.
-		if not self.hook(const.LOC_EV_IQ, user, msg):
+	def ev_iq(self, iq):
+		# Process persistent hooks.
+		if self.hook(const.LOC_EV_IQ, iq):
 			return
 
-	def ev_unsubscribe(self, user, msg):
-		if not self.hook(const.LOC_EV_UNSUBSCRIBE, user, msg):
+	def ev_unsubscribe(self, pres):
+		"""User has forced us to remove them from our list."""
+		if self.hook(const.LOC_EV_UNSUBSCRIBE, pres):
 			return
 
 		user = user.getStripped()
 		# User removed us from their list
 		# So remove them from ours.
-		log(user, "unsubscribing:", msg)
-		self.removeUser(user)
-		self.rejectUser(user)
-		self.refreshRoster()
-
-	def ev_unsubscribed(self, user, msg):
-		"""User has forced us to remove them from our list."""
-		if not self.hook(const.LOC_EV_UNSUBSCRIBED, user, msg):
-			return
-
-		user = user.getStripped()
-		log(user, "unsubscribing:", msg)
+		log(user, "unsubscribing:", pres.getStatus())
 		self.removeUser(user)
 		# Remove us from their list
 		self.rejectUser(user)
 		self.refreshRoster()
 
-	def ev_subscribe(self, user, msg):
-		if not self.hook(const.LOC_EV_SUBSCRIBE, user, msg):
+	def ev_subscribe(self, pres):
+		if self.hook(const.LOC_EV_SUBSCRIBE, pres):
 			return
 
 		#FIXME: Currently getjid can only rebuild JID's with gmail.com domains,
@@ -202,43 +194,43 @@ class ConferenceBot(BotFramework, PluginFramework):
 
 		user = user.getStripped()
 		# User added us to their list, so add them to ours
-		log(user, "subscribing:", msg)
+		log(user, "subscribing:", pres.getStatus())
 		self.addUser(user)
 		self.acceptUser(user)
 		self.refreshRoster()
 
-	def ev_subscribed(self, user, msg):
-		if not self.hook(const.LOC_EV_SUBSCRIBED, user, msg):
+	def ev_subscribed(self, pres):
+		if self.hook(const.LOC_EV_SUBSCRIBED, pres):
 			return
 
-	def ev_unavilable(self, user, status):
+	def ev_unavilable(self, pres):
 		# Process persistant hooks.
-		if not self.hook(const.LOC_EV_UNAVILABLE, user, status):
+		if self.hook(const.LOC_EV_UNAVILABLE, pres):
 			return
 
-	def ev_online(self, user, status):
+	def ev_online(self, pres):
 		# Process persistant hooks.
-		if not self.hook(const.LOC_EV_ONLINE, user, status):
+		if self.hook(const.LOC_EV_ONLINE, pres):
 			return
 
-	def ev_away(self, user, status):
+	def ev_away(self, pres):
 		# Process persistant hooks.
-		if not self.hook(const.LOC_EV_AWAY, user, status):
+		if self.hook(const.LOC_EV_AWAY, pres):
 			return
 
-	def ev_chat(self, user, status):
+	def ev_chat(self, pres):
 		# Process persistant hooks.
-		if not self.hook(const.LOC_EV_CHAT, user, status):
+		if self.hook(const.LOC_EV_CHAT, pres):
 			return
 
-	def ev_dnd(self, user, status):
+	def ev_dnd(self, pres):
 		# Process persistant hooks.
-		if not self.hook(const.LOC_EV_DND, user, status):
+		if self.hook(const.LOC_EV_DND, pres):
 			return
 
-	def ev_xa(self, user, status):
+	def ev_xa(self, pres):
 		# Process persistant hooks.
-		if not self.hook(const.LOC_EV_XA, user, status):
+		if self.hook(const.LOC_EV_XA, pres):
 			return
 
 if __name__ == '__main__':
