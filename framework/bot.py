@@ -208,6 +208,7 @@ class BotFramework(object):
 				self.process()
 			except KeyboardInterrupt, e:
 				self.stop()
+				logging.shutdown()
 				sys.exit(0)
 				break
 			except AttributeError, e:
@@ -312,7 +313,7 @@ class BotFramework(object):
 			"""Run the event after a period of time has passed."""
 
 			delay_ = delay
-			last_run = run_now and 1 or time.time()
+			last_run = 1 if run_now else time.time()
 			repeat_ = repeat
 			event_ = event
 			args_ = args
