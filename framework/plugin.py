@@ -243,14 +243,15 @@ class PluginFramework(object):
 	def hook(self, loc, *args, **kwargs):
 		'''hook(str, loc, *args, **kwargs) -> bool
 
-		Hooks at 'loc' are processed in this order.
-		Run all critical hooks, return False for hooks that return True.
-		Run all persistant hooks, ingoring return values.
-		Run all non-persistant hooks, return false for hooks that return True.
+		All hooks at 'loc' are processed with the passed args.
+		If any hook returns a True value hook will return True to signal the
+		calling function to break execution.
 
 		'''
-		# Multiple plugins can register hooks, the first one to
-		# return True causes all further processing of that hook
+
+		# If True the calling function should break execution
+		break_ = False
+
 		for hook in mounts.HookMount.get_plugin_list(loc=loc):
 			# Class objects are types while class instances are not.
 			# This means if the hook is not a type it's already been initialized
@@ -259,10 +260,10 @@ class PluginFramework(object):
 				hook = hook(self)
 
 			# Process the next frame of the hook's generator.
-			if hook.process(*args, **kwargs) is True:
-				return True
+			break_ |= bool(hook.process(*args, **kwargs))
 
-		return False
+		return break_
+
 
 		for hook in mounts.HookMount.get_plugin_list(
 			loc=loc, critical=True, persist=None):
