@@ -65,7 +65,7 @@ class GrantAdmin(mounts.CommandMount):
 			'that needs to be passed to !grant to grant the caller admin status.'
 		iMan.unload(plugin_name)
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		if args == self.grant_pass:
 			iMan.load([utils.get_module(), 'roster'])
 			iMan.roster[utils.getname(user).lower()].rank = const.RANK_ADMIN
@@ -77,7 +77,7 @@ class Echo(mounts.CommandMount):
 	rank = const.RANK_USER
 	file = __file__
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		self.parent.sendto(user, args)
 
 class RawMsg(mounts.CommandMount):
@@ -85,7 +85,7 @@ class RawMsg(mounts.CommandMount):
 	rank = const.RANK_ADMIN
 	file = __file__
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		self.parent.sendtoall(args)
 
 class Whisper(mounts.CommandMount):
@@ -106,7 +106,7 @@ class ToggleCommand(mounts.CommandMount):
 	__doc__ = 'Disabled a command without unloading the whole plugin. \n' \
 				'Usage: !toggle cmd_name'
 
-	def thread(self, user, names, whisper):
+	def thread(self, user, names):
 		if ',' in names:
 			names = names.split(',')
 		else:
@@ -134,7 +134,7 @@ class ForgetUser(mounts.CommandMount):
 
 	__doc__ = "Remove a user's information from the roster"
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		iMan.load([utils.get_module(), 'roster'])
 		args = args.lower()
 		if args in iMan.roster.keys():
@@ -151,7 +151,8 @@ class HookIgnoreUser(mounts.HookMount):
 	priority = const.PRIORITY_CRITICAL
 
 
-	def thread(self, user, args):
+	def thread(self, msg):
+		user = msg.from_user
 		if iMan.loaded('roster') and iMan.roster[utils.getname(user).lower()].has_key('blocked'):
 			return True
 
@@ -163,7 +164,7 @@ class IgnoreUser(mounts.CommandMount):
 	__doc__ = "Make the bot ignore imput from the user. \n Usage: !block <username>"
 
 
-	def thread(self, user, target, whisper):
+	def thread(self, user, target):
 		if not iMan.loaded('roster'):
 			self.parent.sendto(user, "The roster isn't loaded. I am unable to block users")
 			return
@@ -190,7 +191,7 @@ class UnignoreUser(mounts.CommandMount):
 	__doc__ = "Allow the user to interact with the bot. \n Usage: !unblock <username>"
 
 
-	def thread(self, user, target, whisper):
+	def thread(self, user, target):
 		if not iMan.loaded('roster'):
 			self.parent.sendto(user, "The roster isn't loaded. I am unable to unblock users")
 			return
@@ -245,7 +246,7 @@ class Reload(mounts.CommandMount, LoadParser):
 	__doc__ = """Reload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
 		if options.extra:
@@ -259,6 +260,7 @@ class Reload(mounts.CommandMount, LoadParser):
 			iMan[options.ini].read()
 			self.parent.sendto(user, 'I have read the ini (%s)' % options.ini)
 
+
 		if options.plugin is True or options.all:
 			plugins_to_load = self.parent._pluginhash.keys()
 			if False:
@@ -268,13 +270,12 @@ class Reload(mounts.CommandMount, LoadParser):
 		elif options.plugin:
 			plugins_to_load = [options.plugin]
 
-		if not options.force:
-			plugins_to_load = [x for x in plugins_to_load
-							   if self.parent.plugin_changed(x)]
-		self.parent.unload_plugins(plugins_to_load)
-		loaded = self.parent.load_plugins(plugins_to_load)
-
 		if options.plugin or options.all:
+			if not options.force:
+				plugins_to_load = [x for x in plugins_to_load
+								   if self.parent.plugin_changed(x)]
+			self.parent.unload_plugins(plugins_to_load)
+			loaded = self.parent.load_plugins(plugins_to_load)
 			if not loaded:
 				self.parent.sendto(user, "No plugins required reloading.")
 			else:
@@ -289,7 +290,7 @@ class Load(mounts.CommandMount, LoadParser):
 	__doc__ = """Load parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
 		if options.extra:
@@ -322,7 +323,7 @@ class Unload(mounts.CommandMount, LoadParser):
 	__doc__ = """Unload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
 
 
-	def thread(self, user, args, whisper):
+	def thread(self, user, args):
 		options = self.load_parser.parse_args(shlex.split(args.lower()))
 
 		if options.extra:
