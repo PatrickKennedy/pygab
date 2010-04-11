@@ -29,6 +29,8 @@
 
 from __future__ import with_statement
 
+import logging
+import logging.handlers
 import	os
 import	re
 import	sys
@@ -37,7 +39,15 @@ import	traceback
 from	common	import const, mounts, utils
 from	common.ini	import iMan
 
-def attach_hooks(func):
+_plugin_log = logging.getLogger('pygab.plugins')
+_handler = logging.handlers.RotatingFileHandler(
+	os.path.join('.', utils.get_module(), 'plugin_errors.log'),
+	maxBytes=256000, backupCount=3, encoding='utf-8', delay=True
+)
+_handler.setLevel(logging.ERROR)
+_plugin_log.addHandler(_handler)
+
+def attach_hooks(hook_name=''):
 	"""Attach both pre- and -post hooks.
 
 	"""
@@ -137,12 +147,13 @@ class PluginFramework(object):
 				traceback.print_exc()
 				print '\n'
 				self._unload_plugin(plug_path)
-				utils.debug('plugins', 'There was an error importing the plugin. A report has been logged.')
+				#utils.debug('plugins', 'There was an error importing the plugin. A report has been logged.')
+				_plugin_log.error('There was an error importing %s\n%s' % (plugin_name, traceback.format_exc()))
 
-				utils.confirmdir("errors")
-				with file(os.path.join('.', 'errors', "PluginError-%s.log" % self.module), "a+") as pluglog:
-					print >>pluglog, "\n Plugin error log for: ", plugin_name
-					traceback.print_exc(None, pluglog)
+				#utils.confirmdir("errors")
+				#with file(os.path.join('.', 'errors', "PluginError-%s.log" % self.module), "a+") as pluglog:
+				#	print >>pluglog, "\n Plugin error log for: ", plugin_name
+				#	traceback.print_exc(None, pluglog)
 				continue
 
 		return loaded
@@ -172,7 +183,8 @@ class PluginFramework(object):
 		if initializer:
 			initializer(self).initialize()
 
-		utils.debug('core', "Loading Plugin (%s)" % path_)
+		#utils.debug('core', "Loading Plugin (%s)" % path_)
+		_plugin_log.info("Loading Plugin (%s)" % path_)
 		self._pluginhash[name] = hash(a)
 		return True
 

@@ -29,6 +29,7 @@
 
 from __future__ import with_statement
 
+import logging
 import	os
 import	sys
 import	time
@@ -55,6 +56,7 @@ iMan.load('config', utils.get_module())
 # Contains all the server information
 server = iMan.config.server
 
+conn_log = logging.getLogger('pygab.net')
 class ConferenceBot(BotFramework, PluginFramework):
 	def __init__(self):
 		#Start all the behind the scenes functions.
@@ -81,10 +83,10 @@ class ConferenceBot(BotFramework, PluginFramework):
 				resource=server.resource
 			)
 		except const.ConnectError, serv:
-			print "Unable to connect to server. %s:%s" % serv.message
+			conn_log.fatal("Unable to connect to server. %s:%s" % serv.message)
 			sys.exit(1)
 		except const.AuthError, serv:
-			print "Unable to authorize on %s:%s - check login/password." % serv.message
+			conn_log.fatal("Unable to authorize on %s:%s - check login/password." % serv.message)
 			sys.exit(1)
 
 	def reconnect(self, tries=5):
@@ -94,15 +96,19 @@ class ConferenceBot(BotFramework, PluginFramework):
 
 		"""
 		delay = 5
-		utils.debug('connection', 'Attempting to reconnect in %s seconds.' % delay)
+		conn_log = logging.getLogger('pygab.net')
+		#utils.debug('connection', 'Attempting to reconnect in %s seconds.' % delay)
+		conn_log.info('Attempting to reconnect in %s seconds.' % delay)
 		time.sleep(delay)
 		try:
 			self.client.reconnectAndReauth()
 			self.setOnline()
 			return True
 		except AttributeError:
-			utils.debug('connection', 'Failed to reconnect. Making new connection'
-								' in %s seconds.' % delay)
+			#utils.debug('connection', 'Failed to reconnect. Making new connection'
+			#					' in %s seconds.' % delay)
+			conn_log.info('Failed to reconnect. Making new connection in'
+						   ' %s seconds.' % delay)
 			time.sleep(delay)
 			self.prep()
 			if tries:
@@ -244,7 +250,9 @@ if __name__ == '__main__':
 	#	if i not in userlist.keys():
 	#		adduser(getname(i))
 
-	utils.debug('core', "The bot is now online!\nRunning version: %s\nAt %s" % (
-			utils.get_svn_revision(), time.strftime("%Y-%m-%d %H:%M:%S")
-		))
+	#utils.debug('core', "The bot is now online!\nRunning version: %s\nAt %s" % (
+	#		utils.get_svn_revision(), time.strftime("%Y-%m-%d %H:%M:%S")
+	#	))
+	logging.getLogger('pygab').info("The %s module is now online!" % utils.get_module())
+	logging.getLogger('pygab').info("Running version: %s" % utils.get_svn_revision())
 	me.run()

@@ -27,20 +27,25 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import 	xmpp
-import 	traceback
-import 	os
-import	sys
-import 	time
+import logging
+import logging.config
+import logging.handlers
+import traceback
+import os
+import sys
+import time
 
 # Add import paths
 # This lets modules access common files.
 #sys.path.append(os.path.abspath(os.path.join('.', 'common')))
+import xmpp
 
-from 	common		import	const
-from 	common.ini	import	iMan
-from 	common.weightless_timers import NamedThreadPool
-from 	xml.parsers.expat	import	ExpatError
+from common		import	const, utils
+from common.ini	import	iMan
+from common.weightless_timers import NamedThreadPool
+from framework import pretty_stanza
+
+from xml.parsers.expat	import	ExpatError
 
 # This file deals with all the XMPP side of things
 # It creates a "Bot" object which deals with taking commands and turning
@@ -49,8 +54,49 @@ from 	xml.parsers.expat	import	ExpatError
 
 # You are expected to override functions beginning with "ev_"
 
+# Add import paths
+sys.path.append(os.path.abspath(os.path.join('.', 'common')))
+
 # The "process" function is also available to be overridden.
 # It is called directly after the jabber client's process function.
+
+def initalize_ini():
+	pass#iMan.load(utils.get_module(), 'config')
+
+def initalize_loggers():
+	module_path = os.path.join('.', utils.get_module())
+	#logging.config.fileConfig(os.path.join(module_path, 'logging.conf'))
+	# Disable base logger logging
+	base_log = logging.getLogger('')
+	base_log.removeHandler(base_log.handlers[0])
+
+	global root_log, net_log, chat_log
+	root_log = logging.getLogger('pygab')
+	root_log.setLevel(logging.INFO)
+
+	handler = logging.StreamHandler(sys.stdout)
+	handler.setFormatter(logging.Formatter(
+		'%(levelname)s:%(name)s:%(asctime)s:%(message)s', iMan.config.system.timeformat))
+	root_log.addHandler(handler)
+
+	#--- Connection Logger -----------------------------------------------------
+	net_log = logging.getLogger('pygab.net')
+	handler = logging.handlers.TimedRotatingFileHandler(
+		os.path.join(module_path, iMan.config.system.logpath, 'connection.log'),
+		'midnight', 1, 0,'utf-8')
+	handler.setFormatter(logging.Formatter(
+		'%(levelname)s %(asctime)s %(message)s', iMan.config.system.timeformat))
+	net_log.addHandler(handler)
+
+	#--- Chat Logger -----------------------------------------------------------
+	chat_log = logging.getLogger('pygab.chat')
+	handler = logging.handlers.TimedRotatingFileHandler(
+		os.path.join(module_path, iMan.config.system.logpath, 'history.log'),
+		'midnight', 1, 0,'utf-8')
+	handler.setFormatter(logging.Formatter(
+		'%(asctime)s %(message)s', iMan.config.system.timeformat))
+
+	chat_log.addHandler(handler)
 
 def _promote_jid(jid):
 	"""_promote_jid(str jid) -> xmpp.protocol.JID
@@ -75,9 +121,8 @@ class BotFramework(object):
 		return self.last_stanza.getFrom()
 
 	def __init__(self, username, password, domain="gmail.com"):
-
-		# Add import paths
-		sys.path.append(os.path.abspath(os.path.join('.', 'common')))
+		initalize_ini()
+		initalize_loggers()
 
 		self.jid = xmpp.protocol.JID("%s@%s" % (username,domain))
 		self.password = password
@@ -109,7 +154,7 @@ class BotFramework(object):
 		if not conres:
 			raise const.ConnectError(server)
 		if secure and conres != 'tls':
-			print "Warning: Unable to estabilish secure connection - TLS failed!"
+			net_log.warning("Unable to estabilish secure connection - TLS failed!")
 
 		#self.client.disconnect_handlers = []
 		self.client.RegisterHandler('message',self._msgcb)
@@ -120,7 +165,7 @@ class BotFramework(object):
 		if not authres:
 			raise const.AuthError(server)
 		if authres != 'sasl':
-			print "Warning: Unable to perform SASL auth os %s:%s. Old authentication method used!" % server
+			net_log.warning("Unable to perform SASL auth on %s:%s. Old authentication method used!" % server)
 
 		self.client.sendInitPresence()
 
@@ -138,7 +183,7 @@ class BotFramework(object):
 				self.clearState()
 
 				#Montior day changes and changes in log location.
-				log_path = os.path.join(
+				"""log_path = os.path.join(
 					'.', self.module, iMan.config.system.logpath or 'logs'
 				)
 				if not os.path.isdir(log_path):
@@ -146,7 +191,7 @@ class BotFramework(object):
 					print "ALERT: The dir doesn't exist, making (%s)" % log_path
 				self.logf = file(os.path.join(log_path,
 					time.strftime(iMan.config.system.logformat) + '.log'
-				), "a+")
+				), "a+")"""
 
 				# Send some kind of dummy message every few minutes to
 				# tell Google we're still here.
@@ -515,21 +560,23 @@ class BotFramework(object):
 		pres_show = pres.getShow()
 		msg = pres.getStatus() or ""
 
+		#print "Unknown Presence: %s\nType: %r Show: %r\nStatus: %r \nMessage: %s\n" % (
+		#	user, pres_type, pres_show, pres.getStatus(), msg)
 		# Deal with subscription etc
 		if pres_type in presTypes1:
-			presTypes1[pres.getType()](user, msg)
+			presTypes1[pres.getType()](pres)
 
 		# Deal with away/chat/dnd/xa
 		elif pres_show in presShows:
-			presShows[pres.getShow()](user, msg)
+			presShows[pres.getShow()](pres)
 
 		# they're "just" online
 		elif pres_type is None and pres.getShow() is None:
-			self.ev_online(user,msg)
+			self.ev_online(pres)
 
 		# Deal with unsubscription etc
 		elif pres_type in presTypes2:
-			presTypes2[pres.getType()](user, msg)
+			presTypes2[pres.getType()](pres)
 
 		else:
 			print "Unknown Presence: %s\nType: %r Show: %r\nStatus: %r" \
@@ -537,9 +584,11 @@ class BotFramework(object):
 								   pres.getStatus(), msg)
 
 	def _iqcb(self, conn, iq):
+		iq.__class__ = pretty_stanza.PrettyIq
+
 		self.last_stanza = iq
-		self.ev_iq(iq.getFrom(), iq)
+		self.ev_iq(iq)
 
 if __name__ == '__main__':
-	print "bot.py is not meant to be run on it's own. Please run a provided module (eg. gbot.py)"
+	root_log.fatal("bot.py is not meant to be run on it's own. Please run a provided module (eg. gbot.py)")
 	sys.exit()
