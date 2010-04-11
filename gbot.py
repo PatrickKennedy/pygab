@@ -103,6 +103,7 @@ class ConferenceBot(BotFramework, PluginFramework):
 		Attempt to reconnect to the server `tries` number of times.
 
 		"""
+
 		delay = 5
 		conn_log = logging.getLogger('pygab.net')
 		#utils.debug('connection', 'Attempting to reconnect in %s seconds.' % delay)
@@ -127,28 +128,42 @@ class ConferenceBot(BotFramework, PluginFramework):
 	def log(self,*args):
 		log(*args)
 
-	def sendtoall(self, msg, butnot = []):
-		'''Send msg to all online users exclusing anyone in butnot.'''
+	def _send_msg(self, msg):
+		"""Takes a message stanza rather than a jid and message"""
+		if self.hook(const.LOC_SEND_MSG_PER_USER, msg.to_user, msg):
+			return
+		for resource,(show,status) in self.getJidStatus(msg.to_user).items():
+			# Ignore people who aren't online
+			if self.hook(const.LOC_SEND_MSG_PER_RESOURCE, resource, msg) or \
+				show in [u"online", u"chat"]:
+				self.client.send(msg)
+
+	def sendtoall(self, text, butnot=[]):
+		'''Send msg to all online users excluding anyone in butnot.'''
+		logging.getLogger('pygab.chat').info('All <- %s' % text)
+		if self.hook(const.LOC_SEND_MSG_PER_MSG, text):
+			return
+
 		for user in self.getRoster():
-			# Skip any users in butnot
 			if user in butnot:
 				continue
-			for resource,(status,display) in self.getJidStatus(user).items():
-				# Ignore people who aren't online
-				if status in [u"online", u"chat"]:
-					self.msg(resource, msg)
+			message = self._build_msg(utils.getjid(user), text)
+			self._send_msg(message)
 
-		self.log(msg)
+	def sendto(self, user, text):
+		'''Send msg to user via self._send_msg'''
+		logging.getLogger('pygab.chat').info('%s <- %s' % (utils.getnickname(user), text))
+		message = self._build_msg(utils.getjid(user), text)
+		if self.hook(const.LOC_SEND_MSG_PER_MSG, message):
+			return
 
-	def sendto(self, user, msg):
-		'''Send msg to user via self.msg'''
-		self.msg(user, msg)
+		self._send_msg(message)
 
 	def sys(self, user, msg):
 		self.sendto(user, '%s %s' % (iMan.config.system.sysprefix, msg))
 
-	def systoall(self, msg, butnot=[], log = True):
-		self.sendtoall('%s %s' % (iMan.config.system.sysprefix, msg), butnot, log = log)
+	def systoall(self, msg, butnot=[]):
+		self.sendtoall('%s %s' % (iMan.config.system.sysprefix, msg), butnot)
 
 	def error(self, user, msg):
 		"Send an error message to a user"
