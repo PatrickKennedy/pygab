@@ -46,6 +46,20 @@ class Init(mounts.PluginInitializers):
 		iMan.unload('roster')
 		mounts.PluginInitializers.remove(self.__class__)
 
+
+class HookRosterKongAFK(mounts.HookMount):
+	name = 'HookRosterKongAFK'
+	loc = [const.LOC_EV_MSG_PRE, const.LOC_EV_CHAT,
+		   const.LOC_EV_ONLINE, const.LOC_EV_UNAVAILABLE]
+	file = __file__
+	priority = const.PRIORITY_PERSISTANT
+
+	def thread(self, user, status):
+		roster = iMan.roster[utils.getname(user).lower()]
+		if 'afk' in roster and roster.afk[0] == "AWOL (a.k.a. set AFK by the chat)":
+			del roster.afk
+
+
 class HookRosterOnline(mounts.HookMount):
 	name = 'HookRosterOnline'
 	loc = [const.LOC_EV_ONLINE]
@@ -58,6 +72,22 @@ class HookRosterOnline(mounts.HookMount):
 				self.parent.sendto(user, 'Howdy!')
 			self.parent.addTimer(1, f, 0, type='seconds')
 		iMan.roster[utils.getname(user).lower()].last_login = None
+
+class HookRosterAway(mounts.HookMount):
+	name = 'HookRosterAway'
+	loc = [const.LOC_EV_AWAY]
+	file = __file__
+	priority = const.PRIORITY_PERSISTANT
+
+	def thread(self, user, status):
+		if utils.getname(user).lower().startswith('guest_'):
+			return
+		roster = iMan.roster[utils.getname(user).lower()]
+		if not 'afk' in roster:
+			# Add an automated message we can check to see if the user was
+			# automatically set away in other hooks.
+			# Also account for the 15 minute delay by subtracting 900 seconds.
+			roster.afk = ["AWOL (a.k.a. set AFK by the chat)", time.time()-900]
 
 class HookRosterLastMessage(mounts.HookMount):
 	name = 'HookRosterLastMessage'
@@ -77,7 +107,6 @@ class HookRosterOffline(mounts.HookMount):
 	def thread(self, user, status):
 		roster = iMan.roster[utils.getname(user).lower()]
 		roster.last_login = time.time()
-		#roster.last_message = None
 
 class HookRosterAFK(mounts.HookMount):
 	name = 'HookRosterAFK'
@@ -86,6 +115,7 @@ class HookRosterAFK(mounts.HookMount):
 	priority = const.PRIORITY_PERSISTANT
 
 	r = re.compile('(?:afk|brb)[:/,\.]?\s?(?P<reason>.*)', re.I)
+	nolp = re.compile('lunatic pandora', re.I)
 	webies = [
 		'Welcome Back, %s!',
 		'%s, I\'ve been... Expecting you.',
@@ -109,7 +139,7 @@ class HookRosterAFK(mounts.HookMount):
 		if iMan.loaded('roster'):
 			roster = iMan.roster[utils.getname(user).lower()]
 			match = self.r.match(msg)
-			if msg.startswith('|') and msg.endswith('|'):
+			if msg.startswith('((') and msg.endswith('))'):
 				return False
 			if not match and 'afk' in roster:
 				timestamp = datetime.datetime.fromtimestamp(roster.afk[1])
@@ -123,6 +153,7 @@ class HookRosterAFK(mounts.HookMount):
 				del roster.afk
 			elif match:
 				reason = match.group('reason')
+				reason = self.nolp.sub('', reason)
 				roster.afk = [reason, time.time()]
 				self.parent.sendto(user, random.choice(self.byes) % utils.getname(user))
 
@@ -139,19 +170,21 @@ class CleanUp(mounts.CommandMount):
 
 		return 0
 
-	def thread(self, user, args, whisper):
-		if iMan.loaded('roster'):
+	def thread(self, user, dry_run, whisper):
+		iMan.load('roster')
+		try:
 			self.parent.sendto(user, 'Beginning Clean Up.')
 			removed = 0
 			roster = iMan.roster
 			for username, user_dict in roster.items():
 				if self.time_diff_days(user_dict.get('lastseen')) >= 14:
 					removed += 1
-					del roster[username]
+					if not dry_run:
+						del roster[username]
 
 			self.parent.sendto(user, 'Clean up complete! Removed %s entries.' % removed)
-		else:
-			self.parent.sendto(user, 'The roster is not loaded. I can\'t do anything')
+		finally:
+			iMan.unload('roster')
 
 class LastSeen(mounts.CommandMount):
 	name = 'lastseen'
@@ -159,7 +192,7 @@ class LastSeen(mounts.CommandMount):
 	file = __file__
 
 	truncate_to = 16
-	if iMan.load([utils.get_module(), 'plugins', 'plugin_lastseen']):
+	if iMan.load(utils.get_module(), 'plugins', 'plugin_lastseen'):
 		if 'truncate_to' not in iMan.plugin_lastseen:
 			iMan.plugin_lastseen._comments['truncate_to'] = \
 				"Truncate passed names to x characters.\nWon't truncate if 0."

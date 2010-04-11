@@ -152,7 +152,17 @@ class Mail(mounts.CommandMount):
 								   "can't send him a letter." % cmd)
 			else:
 				iMan.mail[target][utils.getname(user)] = ' '.join(message)
-				self.parent.sendto(user, "I have mailed your message to %s. "
+				target_jid = utils.getjid(target)
+				if self.parent.was_whispered and \
+					utils.isonline(self.parent, target_jid):
+						self.parent.sendto(target_jid,
+									'%s has mailed you a message. '
+									'Please use "/w iPal !mail get" to '
+									'retrive it.' % utils.getname(user))
+						self.parent.sendto(user, "I've notified %s about your "
+										   "message." % target)
+				else:
+					self.parent.sendto(user, "I have mailed your message to %s. "
 								   "He will notified it when he logs in." % cmd)
 
 		iMan.mail.save()
