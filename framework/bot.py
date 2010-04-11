@@ -340,15 +340,22 @@ class BotFramework(object):
 		"""
 		self.timers.remove(timer_name)
 
-	def msg(self, jid, message):
+	def _build_msg(self, jid, text):
+		"""A simple convenience method for building Message stanzas."""
+		return pretty_stanza.PrettyMessage(to=jid, body=text)
+
+	def _send_msg(self, message):
+		"""Send a message stanza through the tubes"""
+		self.client.send(message)
+
 	# Messages to send
+	def msg(self, jid, text):
 		"""msg(JID jid, str message) -> None
 
-		Send a message to the specified jid
+		Build and send a message to a given jid
 
 		"""
-		last_activity = time.time()
-		self.client.send(xmpp.protocol.Message(jid, message))
+		self._send_msg(self._build_msg(jid, text))
 
 	# Roster management commands
 	def addUser(self, jid):
