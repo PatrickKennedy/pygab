@@ -57,11 +57,14 @@ Dan - Searches for all names containing 'dan'
 Dan* - Searches for all names beginning with 'dan'"""
 
 	def thread(self, user, sub, whisper):
-		if not self.parent.was_whispered and not utils.isadmin(user):
-			return
+		#if not self.parent.was_whispered and not utils.isadmin(user):
+			#raise const.CommandHelp, 'Whisper Only Command'
 
 		sub = sub.lower().encode('utf-8', 'replace')
 		base = str
+
+		if len(sub) < 3:
+			raise const.CommandHelp, 'Minimum 3 Letters'
 
 		if sub.startswith('*'):
 			sub = sub[1:]
@@ -74,7 +77,7 @@ Dan* - Searches for all names beginning with 'dan'"""
 
 		names = [name for name in iMan.roster if func(name, sub)]
 		if names:
-			reply = 'Matched Names - %s' % ', '.join(names)
+			reply = 'Matched Names (%s) - %s' % (len(names), ', '.join(names))
 		else:
 			reply = "I can't find anyone with your search parameters."
 
