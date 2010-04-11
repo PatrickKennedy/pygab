@@ -40,7 +40,7 @@ class EightBall(mounts.CommandMount):
 	name = '8ball'
 	rank = const.RANK_USER
 	file = __file__
-	__doc__ = "Concentrate on a question and call the command for an answer."
+	__doc__ = "Ask me a Yes, No, or Maybe So question and I'll give you the answer."
 
 	messages = [
 		'Signs point to yes.', 'Yes.', 'Reply hazy, try again.',
@@ -63,6 +63,9 @@ class EightBall(mounts.CommandMount):
 	combined_messages = messages + alt_messages
 
 	def thread(self, user, args, whisper):
+		if not args.endswith('?'):
+			raise const.CommandHelp
+
 		if self.parent.was_whispered:
 			self.parent.sendto(user, random.choice(self.combined_messages))
 		else:

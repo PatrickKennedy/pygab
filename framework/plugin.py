@@ -134,7 +134,7 @@ class PluginFramework(object):
 		"""
 		loaded = []
 		for plugin_name in plugins:
-			#TODO: Support loading multiple
+			#TODO: Support loading multiple plugins on top of each other
 			plug_path = self.get_plugin_path(plugin_name)
 			if not plug_path:
 				self.error(self.active_user, 'The plugin "plugin_%s.py" could not be found.' % plugin_name)

@@ -114,7 +114,8 @@ class HookRosterAFK(mounts.HookMount):
 			if not match and 'afk' in roster:
 				timestamp = datetime.datetime.fromtimestamp(roster.afk[1])
 				self.parent.sendto(
-					user, (random.choice(self.webies) + " You were gone for %s") % (
+					user,
+					(random.choice(self.webies) + " You were gone for %s") % (
 						utils.getname(user),
 						utils.time_since(timestamp, '.')
 					)

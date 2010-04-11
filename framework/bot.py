@@ -142,7 +142,6 @@ class BotFramework(object):
 		resorce	: The jabber resource for the bot.
 
 		"""
-		#traceback.print_exc()
 
 		self.client = xmpp.Client(self.jid.getDomain(), debug=[])
 
@@ -294,6 +293,7 @@ class BotFramework(object):
 		self.running = False
 		self.logf.close()
 
+	#TODO: Allow user to pass a name for the timer
 	def addTimer(self, delay, event, repeat=-1, type="minutes",
 				 run_now=False, args=[]):
 		"""addTimer(int delay, callable event, repeat=-1,
@@ -340,8 +340,8 @@ class BotFramework(object):
 		"""
 		self.timers.remove(timer_name)
 
-# Messages to send
 	def msg(self, jid, message):
+	# Messages to send
 		"""msg(JID jid, str message) -> None
 
 		Send a message to the specified jid
@@ -350,7 +350,7 @@ class BotFramework(object):
 		last_activity = time.time()
 		self.client.send(xmpp.protocol.Message(jid, message))
 
-# Roster management commands
+	# Roster management commands
 	def addUser(self, jid):
 		"""addUser(JID jid) -> None
 

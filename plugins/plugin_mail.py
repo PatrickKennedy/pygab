@@ -142,7 +142,7 @@ class Mail(mounts.CommandMount):
 
 		else:
 			if not message:
-				raise const.CommandHelp
+				raise const.CommandHelp, "Missing message"
 			target = cmd.lower()
 			if target == iMan.config.server.displayname.lower():
 				self.parent.sendto(user, "Why do you need to send me mail?")
