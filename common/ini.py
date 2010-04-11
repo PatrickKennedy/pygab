@@ -27,12 +27,15 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import logging
 import traceback
 
-from	common.pyni		import ConfigRoot, ConfigNode
 from	os.path			import abspath, curdir, join
+from	common.pyni		import ConfigRoot, ConfigNode
 
 global iMan
+
+_ini_log = logging.getLogger('pygab.ini')
 
 class IniManager(object):
 
@@ -94,8 +97,8 @@ class IniManager(object):
 		path.append("%s.ini" % name)
 
 		try:
-			ini = ConfigRoot(join(*path), encoding = "utf-8")
-			print "Reading %s" % path[-1]
+			ini = ConfigRoot(abspath(join(*path)), encoding = "utf-8")
+			_ini_log.info("Reading %s" % path[-1])
 			ini.read()
 		except IOError:
 			traceback.print_exc()
@@ -165,6 +168,7 @@ class IniManager(object):
 			ini.save()
 			#print "DEBUG: Saving %s" % ini.getfilename()
 
+		_ini_log.debug("IniManager has saved all ini files.")
 		#print "Debug: IniManager has saved all ini files."
 
 	def has_entry(self, ini, section, key, entry):
@@ -180,7 +184,7 @@ class IniManager(object):
 				return False
 
 		if section in ini and key in ini[section]:
-			print ini[section][key]
+			#print ini[section][key]
 			return entry in ini[section][key]
 		return False
 
