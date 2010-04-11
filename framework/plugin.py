@@ -336,7 +336,7 @@ class PluginFramework(object):
 				self.error(user, "Unknown command, try !help")
 
 			if authorized:
-				cmd_func.process(user, args, whisper)
+				cmd_func.process(user, args)
 
 		except const.CommandHelp, args:
 			self.sys(user, cmd_func.__doc__)
