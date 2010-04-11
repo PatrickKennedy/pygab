@@ -49,10 +49,11 @@ def log(*args):
 	print >> me.logf, msg
 	me.logf.flush()
 
-from	common		import const, mounts, utils
-from	common.ini 	import iMan
-from	framework	import BotFramework, PluginFramework
-from	gbot		import	*
+from common		import const, mounts, utils
+from common.ini 	import iMan
+from framework.bot	import BotFramework
+from framework.plugin import attach_hooks, attach_post_hook, PluginFramework
+from gbot		import	*
 
 
 iMan.load(utils.get_module(), 'config')
@@ -60,8 +61,12 @@ iMan.load(utils.get_module(), 'config')
 server = iMan.config.server
 
 conn_log = logging.getLogger('pygab.net')
+
+
 class ConferenceBot(BotFramework, PluginFramework):
 	def __init__(self):
+		logging.info('Running %s' % utils.get_module())
+
 		#Start all the behind the scenes functions.
 		BotFramework.__init__(self, server.username, server.password, server.domain)
 		PluginFramework.__init__(self)
@@ -149,6 +154,7 @@ class ConferenceBot(BotFramework, PluginFramework):
 		"Send an error message to a user"
 		self.sendto(user, "ERROR: %s" % msg)
 
+	@attach_hooks()
 	def ev_msg(self, msg):
 		user = utils.getjid(msg.from_user.getStripped())
 		if user != utils.getjid(server.username):
@@ -163,11 +169,13 @@ class ConferenceBot(BotFramework, PluginFramework):
 			text = '<%s> %s' % (utils.getnickname(msg.from_user), msg.text)
 			self.sendtoall(text, butnot=[unicode(user)])
 
+	@attach_hooks()
 	def ev_iq(self, iq):
 		# Process persistent hooks.
 		if self.hook(const.LOC_EV_IQ, iq):
 			return
 
+	@attach_hooks()
 	def ev_unsubscribe(self, pres):
 		"""User has forced us to remove them from our list."""
 		if self.hook(const.LOC_EV_UNSUBSCRIBE, pres):
@@ -182,6 +190,7 @@ class ConferenceBot(BotFramework, PluginFramework):
 		self.rejectUser(user)
 		self.refreshRoster()
 
+	@attach_hooks()
 	def ev_subscribe(self, pres):
 		if self.hook(const.LOC_EV_SUBSCRIBE, pres):
 			return
@@ -199,35 +208,42 @@ class ConferenceBot(BotFramework, PluginFramework):
 		self.acceptUser(user)
 		self.refreshRoster()
 
+	@attach_hooks()
 	def ev_subscribed(self, pres):
 		if self.hook(const.LOC_EV_SUBSCRIBED, pres):
 			return
 
+	@attach_hooks()
 	def ev_unavilable(self, pres):
 		# Process persistant hooks.
 		if self.hook(const.LOC_EV_UNAVILABLE, pres):
 			return
 
+	@attach_hooks()
 	def ev_online(self, pres):
 		# Process persistant hooks.
 		if self.hook(const.LOC_EV_ONLINE, pres):
 			return
 
+	@attach_hooks()
 	def ev_away(self, pres):
 		# Process persistant hooks.
 		if self.hook(const.LOC_EV_AWAY, pres):
 			return
 
+	@attach_hooks()
 	def ev_chat(self, pres):
 		# Process persistant hooks.
 		if self.hook(const.LOC_EV_CHAT, pres):
 			return
 
+	@attach_hooks()
 	def ev_dnd(self, pres):
 		# Process persistant hooks.
 		if self.hook(const.LOC_EV_DND, pres):
 			return
 
+	@attach_hooks()
 	def ev_xa(self, pres):
 		# Process persistant hooks.
 		if self.hook(const.LOC_EV_XA, pres):
