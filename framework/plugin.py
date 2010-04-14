@@ -82,10 +82,12 @@ class PluginFramework(object):
 
 	"""
 
-	def __init__(self):
+	def __init__(self, folder_name="plugins", name_format="plugin_%%s.py"):
 		#Plugin hashing dictionary
 		self._pluginhash = {}
 		self.pluginpaths = [utils.get_module(), '']
+		self.folder_name = folder_name
+		self.name_format = name_format
 
 	def get_plugin_path(self, name):
 		"""
@@ -98,6 +100,15 @@ class PluginFramework(object):
 		else:
 			return None
 
+	def get_plugin_paths(self, name):
+		"""
+
+		Return the first valid path, other wise return None if no path was found.
+
+		"""
+		return list(self.gen_plugin_paths(self.pluginpaths, name))
+
+
 
 	def gen_plugin_paths(self, plugin_paths, name):
 		"""
@@ -107,7 +118,10 @@ class PluginFramework(object):
 		"""
 		for folder in plugin_paths:
 			plug_path = os.path.abspath(
-				os.path.join('.', folder, 'plugins','plugin_%s.py' % name)
+				os.path.join(
+					'.', folder, self.folder_name,
+					self.name_format % name
+				)
 			)
 			if os.path.exists(plug_path):
 				yield plug_path
@@ -131,15 +145,23 @@ class PluginFramework(object):
 		"""
 		loaded = []
 		for plugin_name in plugins:
-			#TODO: Support loading multiple plugins on top of each other
-			plug_path = self.get_plugin_path(plugin_name)
-			if not plug_path:
-				self.error(self.active_user, 'The plugin "plugin_%s.py" could not be found.' % plugin_name)
-				continue
+			if load_plugin(plugin_name):
+				loaded.append(plugin_name)
 
+		return loaded
+
+	def load_plugin(self, name):
+		paths = self.get_plugin_paths(plugin_name)
+		if not paths:
+			self.error(self.active_user, 'The plugin "plugin_%s.py" could not be found.' % plugin_name)
+
+		plugin_namespace = {}
+
+		for path in paths:
+			plugin_namespace["__file__"] = path
 			try:
-				if self._load_plugin(plugin_name, plug_path):
-					loaded.append(plugin_name)
+				if self._load_plugin(plugin_name, path):
+					return True
 			except:
 				traceback.print_exc()
 				print '\n'
@@ -151,11 +173,15 @@ class PluginFramework(object):
 				#with file(os.path.join('.', 'errors', "PluginError-%s.log" % self.module), "a+") as pluglog:
 				#	print >>pluglog, "\n Plugin error log for: ", plugin_name
 				#	traceback.print_exc(None, pluglog)
-				continue
+			
+		# If the plugin has any initialization to be run, handle that here.
+		initializer = mounts.PluginInitializers.plugins.get(plugin_name)
+		if initializer:
+			initializer(self).initialize()
 
-		return loaded
 
-	def _load_plugin(self, name, path_):
+
+	def _load_plugin(self, name, path, namespace):
 		"""load_plugin(path_: str) -> bool
 
 		Load `path_` and attempt to execute.
@@ -164,7 +190,7 @@ class PluginFramework(object):
 
 		"""
 
-		with open(path_, "r") as f:
+		with open(path, "r") as f:
 			a = f.read()
 		# Skip plugins that haven't been updated.
 		if not self.plugin_changed(name, a):
@@ -173,15 +199,10 @@ class PluginFramework(object):
 		# Replicate __file__ in the plugin, since it isn't set by the
 		# interpreter when it executes a string.
 		# We're using __file__ to know what command classes to unload.
-		plugin = {'__file__':path_}
-		exec compile(a, 'plugin_%s.py' % name, 'exec') in plugin
-		# If the plugin has any initialization to be run, handle that here.
-		initializer = mounts.PluginInitializers.plugins.get(path_)
-		if initializer:
-			initializer(self).initialize()
+		exec compile(a, 'plugin_%s.py' % name, 'exec') in namespace
 
 		#utils.debug('core', "Loading Plugin (%s)" % path_)
-		_plugin_log.info("Loading Plugin (%s)" % path_)
+		_plugin_log.info("Loading Plugin (%s)" % path)
 		self._pluginhash[name] = hash(a)
 		return True
 

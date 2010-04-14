@@ -14,7 +14,7 @@ cmd_log = logging.getLogger('pygab.plugin.core.cmd_dispatch')
 class CommandDispatch(mounts.HookMount):
 	name = 'CommandDispatch'
 	loc = const.LOC_EV_MSG
-	file = __file__
+	plugin = __name__
 	priority = 'e'
 
 	# Used to check if the user wants to redirect the output of a command
