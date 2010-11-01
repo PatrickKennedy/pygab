@@ -118,7 +118,7 @@ class BotFramework(object):
 		Return the JID of the user who the bot last recieved a stanza from.
 
 		"""
-		return self.last_stanza.getFrom()
+		return self.last_stanza.getFrom() if hasattr(self, "last_stanza") else None
 
 	def __init__(self, username, password, domain="gmail.com"):
 		initalize_ini()

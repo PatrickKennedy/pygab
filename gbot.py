@@ -38,6 +38,8 @@ import traceback
 import xmpp
 import user
 
+from common import locations
+
 def log(*args):
 	"""Replacement for print, which doesn't deal with unicode well"""
 	global me
@@ -130,11 +132,13 @@ class ConferenceBot(BotFramework, PluginFramework):
 
 	def _send_msg(self, msg):
 		"""Takes a message stanza rather than a jid and message"""
-		if self.hook(const.LOC_SEND_MSG_PER_USER, msg.to_user, msg):
+		user = msg.to_user
+		if self.hook(const.LOC_SEND_MSG_PER_USER, user, msg):
 			return
-		for resource,(show,status) in self.getJidStatus(msg.to_user).items():
+		for resource,(show,status) in self.getJidStatus(user).items():
 			# Ignore people who aren't online
-			if self.hook(const.LOC_SEND_MSG_PER_RESOURCE, resource, msg) or \
+			# XXX: The message needs to be updated for each resource
+			if self.hook(const.LOC_SEND_MSG_PER_RESOURCE, user, resource, msg) or \
 				show in [u"online", u"chat"]:
 				self.client.send(msg)
 

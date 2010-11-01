@@ -66,6 +66,8 @@ def attach_post_hook(hook_name=''):
 	For use if there is a critical check before the pre- hook which requires it
 	to be defined within the function itself.
 
+	ex. "if msg.sender == bot.jid"
+
 	"""
 	def decorator(func):
 		def wrapper(self, *args):
@@ -82,7 +84,7 @@ class PluginFramework(object):
 
 	"""
 
-	def __init__(self, folder_name="plugins", name_format="plugin_%%s.py"):
+	def __init__(self, folder_name="plugins", name_format="plugin_%s.py"):
 		#Plugin hashing dictionary
 		self._pluginhash = {}
 		self.pluginpaths = [utils.get_module(), '']
@@ -145,37 +147,41 @@ class PluginFramework(object):
 		"""
 		loaded = []
 		for plugin_name in plugins:
-			if load_plugin(plugin_name):
+			if self.load_plugin(plugin_name):
 				loaded.append(plugin_name)
 
 		return loaded
 
 	def load_plugin(self, name):
-		paths = self.get_plugin_paths(plugin_name)
+		paths = self.get_plugin_paths(name)
 		if not paths:
-			self.error(self.active_user, 'The plugin "plugin_%s.py" could not be found.' % plugin_name)
+			# TODO: Add check to see if the bot is connected before trying to
+			# send errors to people.
+			if self.active_user:
+				self.error(self.active_user, 'The plugin "plugin_%s.py" could not be found.' % name)
+			return
 
 		plugin_namespace = {}
 
 		for path in paths:
 			plugin_namespace["__file__"] = path
 			try:
-				if self._load_plugin(plugin_name, path):
+				if self._load_plugin(name, path, plugin_namespace):
 					return True
 			except:
 				traceback.print_exc()
 				print '\n'
-				self._unload_plugin(plug_path)
+				self._unload_plugin(path)
 				#utils.debug('plugins', 'There was an error importing the plugin. A report has been logged.')
-				_plugin_log.error('There was an error importing %s\n%s' % (plugin_name, traceback.format_exc()))
+				_plugin_log.error('There was an error importing %s\n%s' % (name, traceback.format_exc()))
 
 				#utils.confirmdir("errors")
 				#with file(os.path.join('.', 'errors', "PluginError-%s.log" % self.module), "a+") as pluglog:
 				#	print >>pluglog, "\n Plugin error log for: ", plugin_name
 				#	traceback.print_exc(None, pluglog)
-			
+
 		# If the plugin has any initialization to be run, handle that here.
-		initializer = mounts.PluginInitializers.plugins.get(plugin_name)
+		initializer = mounts.PluginInitializers.plugins.get(name)
 		if initializer:
 			initializer(self).initialize()
 

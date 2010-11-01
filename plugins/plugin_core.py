@@ -5,6 +5,7 @@ import re
 
 from common import const, mounts, utils
 from common.ini import iMan
+from common.locations import Locations
 
 from framework import plugin
 

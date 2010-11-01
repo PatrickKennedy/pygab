@@ -27,7 +27,7 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from framework.pluginregistry import PluginRegistry
+from framework.pluginregistry import Locations, PluginRegistry
 
 __all__ = ['thread_base', 'PluginInitializers' ,'CommandMount', 'HookMount']
 
@@ -226,3 +226,29 @@ class HookMount:
 	def __exit__(self, *args):
 		self._thread.close()
 		HookMount.remove(self)
+
+class Location:
+	"""Provides access to locations and standard functions.
+
+	Locations implementing this mount should provide the following attributes:
+
+	========  ==================================================================
+	__doc__   Please provide information on what args are passed to the handler
+			  and what the expected behavior upon returning a True truth value
+			  should be (e.g. consume message in LocEvMsg).
+	========  ==================================================================
+
+	"""
+	#__metaclass__ = Locations
+
+	def __init__(self, parent):
+		self.parent = parent
+
+		# Replace the class object with this instance
+		self.hooks[self.__name__] = self
+
+	def __call__(self, *args, **kwargs):
+		try:
+			self.process(*args, **kwargs)
+		except:
+			self.remove(self)
