@@ -119,7 +119,7 @@ class BotTemplate:
 			self.ev_available(presence)
 			return
 
-		getattr(self, "ev_%s" % presence.show)(presence)
+		getattr(self, "ev_%s" % presence['show'])(presence)
 
 	def ev_available(self, presence):
 		pass
