@@ -1,10 +1,42 @@
 #!/usr/bin/env python
+#
+#  PyGab - Python Jabber Framework
+#  Copyright (c) 2008, Patrick Kennedy
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#
+#  - Redistributions of source code must retain the above copyright
+#  notice, this list of conditions and the following disclaimer.
+#
+#  - Redistributions in binary form must reproduce the above copyright
+#  notice, this list of conditions and the following disclaimer in the
+#  documentation and/or other materials provided with the distribution.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#  A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
+#  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+#  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+#  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+#  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+#  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+#  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import time
+import logging
+
+log = logging.getLogger('pygab.timers')
 
 class TimerFramework:
 	def __init__(self):
 		self.timers = NamedThreadPool()
 
-	def process_timers(self):
+	def process(self):
 		"""processTimers() -> None
 
 		Process any timers that have been set.
@@ -19,7 +51,7 @@ class TimerFramework:
 				self.timers.remove_by_obj(thread)
 
 
-	def add_timer(self, delay, callback, *args, repeat=-1, run_now=False):
+	def add(self, delay, callback, *args, repeat=-1, run_now=False):
 		"""addTimer(delay, callback, *args, repeat=-1, run_now=False) -> None
 
 		Add an event to run at a set interval.
@@ -52,7 +84,7 @@ class TimerFramework:
 		self.timers.append(timer)
 		return timer
 
-	def remove_timer(self, timer_name):
+	def remove(self, timer_name):
 		"""removeTimer(str timer_name) -> None
 
 		Delete an event's timer instance.
@@ -128,6 +160,7 @@ class NamedThreadPool(ThreadPool):
 		# Argument is the generator func, not the gen object
 		# Every threadfunc should contain a docstring
 		docstring = docstring or threadfunc.__doc__
+		self.objid_map[threadfunc] = threadfunc.__name__
 		self.thread_table[threadfunc.__name__] = (
 			docstring,
 			threadfunc(),
