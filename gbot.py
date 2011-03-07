@@ -51,6 +51,8 @@ class Bot(BotTemplate):
 			)
 			self.plugins.load(*ini.system.plugins)
 
+		self.xmpp.schedule('bot_process', 1, self.timers.process, repeat=True)
+
 	def run(self):
 		net_log.info("Connecting")
 		with pyni.Config(utils.get_module(), 'config') as ini:
