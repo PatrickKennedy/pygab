@@ -77,33 +77,25 @@ class IniManager(object):
 	def __delitem__(self, name):
 		return delattr(self, name)
 
-	def load(self, *ini_path):
-		"""load_ini(ini_path: list) -> Bool
+	def load(self, *path):
+		"""load_ini(*path) -> Bool
 
-		Loads 'name'.ini making it available for use.
-		Return True if 'name'.ini loaded properly.
+		Loads `path[-1]`.ini making it available for use.
+		Return True if `path[-1]`.ini loaded properly.
 
 		"""
-		ini_path = list(ini_path)
-		if isinstance(ini_path[0], list):
-			ini_path = ini_path[0]
-		name = ini_path.pop().lower()
-
-		if self.loaded(name):
-			self.__references[name] = self.__references.get(name, 0) + 1
-			return True
-
-		path = [curdir]
-		path.extend(ini_path)
+		path.insert(0, curdir)
+		name = path.pop().lower()
 		path.append("%s.ini" % name)
 
+		if self.loaded(name):
+			self.__references[name] += 1
+			return True
+		
+		ini = ConfigRoot(abspath(join(*path)), encoding="utf-8")
 		try:
-			ini = ConfigRoot(abspath(join(*path)), encoding = "utf-8")
 			_ini_log.info("Reading %s" % path[-1])
 			ini.read()
-		except IOError:
-			traceback.print_exc()
-			return False
 		except:
 			traceback.print_exc()
 			return False
@@ -137,18 +129,6 @@ class IniManager(object):
 				del self.__references[name]
 				return True
 		return False
-
-	def rename(self, name, new_name):
-		"""rename(str name, str new_name) -> None
-
-		Renames the ini 'name' to 'new_name'.
-
-		"""
-		name = name.lower()
-		ini = self[name]
-		self[new_name] = ini
-		ini.setfilename(new_name)
-		ini.save()
 
 	def readall(self):
 		"""readall() -> None

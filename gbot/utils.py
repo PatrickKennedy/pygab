@@ -27,10 +27,15 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from	common.coreutils	import *
-from	common.ini		import	iMan
-from	xmpp.protocol	import	JID
+from common import pyni
+from core.utils import *
 
-def isbanned(user): return getname(user).lower() in iMan.config.users.banned
-def ismod(user): return getname(user).lower() in iMan.config.users.mods
-def isadmin(user): return getname(user).lower() in iMan.config.users.admins
+def isbanned(user):
+	with pyni.Config(get_module(), 'config') as ini:
+		return getname(user).lower() in ini.users.banned
+def ismod(user):
+	with pyni.Config(get_module(), 'config') as ini:
+		return getname(user).lower() in ini.users.mod
+def isadmin(user):
+	with pyni.Config(get_module(), 'config') as ini:
+		return getname(user).lower() in ini.users.admin

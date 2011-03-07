@@ -31,18 +31,16 @@
 ## utils.py performs a * import on the current module's custom utils.py file
 ## This allows plugins to function seemlessly across modules.
 
-from __future__ import with_statement
+import datetime
+import errno
+import os
+import re
+import sys
+import time
+import traceback
 
-import	datetime
-import	errno
-import	os
-import	re
-import	sys
-import	time
-import	traceback
-
-from 	common.ini		import iMan
-from	xmpp.protocol	import JID
+from common.pyni import Config
+from sleekxmpp.xmlstream.jid import JID
 
 #Command exception classes
 class CommandHelp(Exception):pass
@@ -56,11 +54,8 @@ def get_module():
 				by __main__ it will cause an infinate import loop.
 
 	'''
-	# These two lines are depricated lines.
 	# It turns out __main__.__file__ == sys.argv[0] so using sys.argv[0]
 	# removes the risk of infinate import loops! =]
-	#import __main__
-	#selffile = os.path.split(__main__.__file__)[1]
 	selffile = os.path.split(sys.argv[0])[1]
 	return os.path.splitext(selffile)[0]
 
@@ -71,9 +66,6 @@ def get_import(mod=get_module(), from_=[], import_=[]):
 	mod		- The name of the module or base python module.
 	from_   - A list of sub-modules. Joined by '.'s
 	import_ - A list of objects to import from a module. Join by ','s
-
-	Warning: If this is called on import in a module that is imported
-				by __main__ it will cause an infinate import loop.
 
 	'''
 	f = ''
@@ -96,7 +88,7 @@ def get_import(mod=get_module(), from_=[], import_=[]):
 #======
 #= User Names
 def getname(jid):
-	"""getname(xmpp.protocol.JID jid) -> unicode
+	"""getname(xmpp.protocol.JID jid) -> str
 
 	Converts a user@domain/resource to simply a user name.
 
@@ -104,17 +96,18 @@ def getname(jid):
 	# Make sure all JIDs are stardized to be JID objects.
 	# They're much easier to manipulate.
 	assert isinstance(jid, JID)
-	domain = iMan.config.server.domain
+	with Config(get_module(), 'config') as ini:
+		domain = ini.server.domain
 	if jid.domain == domain:
-		return unicode(jid.node)
+		return jid.user
 
-	if '%' in jid.node and jid.domain != domain:
-		return unicode(jid.node[:jid.node.find('%')])
+	if '%' in jid.user and jid.domain != domain:
+		return jid.user[:jid.user.find('%')]
 
-	return unicode(jid)
+	return jid
 
 def getnickname(jid):
-	"""getnickname(xmpp.protocol.JID jid) -> unicode
+	"""getnickname(xmpp.protocol.JID jid) -> str
 
 	Converts a user@domain/resource a possibly user-defined nickname.
 
@@ -129,9 +122,8 @@ def getnickname(jid):
 	# If there is no nickname, return the name of the user.
 	return getname(jid)
 
-def getjid(user, domain='', resource=''):
-	"""getjid(str user, str domain=iMan.config.server.domain
-		str resource=iMan.config.server.resource) -> xmpp.protocol.JID
+def getjid(user, domain=None, resource=''):
+	"""getjid(str user, str domain=config.server.domain, str resource='') -> xmpp.protocol.JID
 
 	Returns a JID for 'user'.
 
@@ -139,19 +131,23 @@ def getjid(user, domain='', resource=''):
 	if isinstance(user, JID):
 			return user
 
-	if not domain:
-		domain = iMan.config.server.domain
+	if domain is None:
+		with Config(get_module(), 'config') as ini:
+			domain = ini.server.domain
+
+	if resource:
+		resource = "#"+resource
 
 	# We can't do anything with non-strings.
-	assert isinstance(user, basestring), 'getjid got passed a %s' % type(user)
+	assert isinstance(user, str), 'getjid got passed a %s' % type(user)
 
 	if '@' in user:
 		user = user.split('@', 1)[0]
-	return JID(
-		node=user,
+	return JID("{user}@{domain}{resource}".format(
+		user=user,
 		domain=domain,
 		resource=resource
-	)
+	))
 
 def has_nick(jid):
 	"""Returns True if jid has a nickname"""
@@ -177,23 +173,26 @@ def set_attr(jid, attr, rank):
 def isbanned(user):
 	if False and iMan.loaded('roster'):
 		return 'banned' in iMan.config[getname(user).lower()].rank
-	return getname(user).lower() in iMan.config.users.banned
+	with Config(get_module, 'roster') as ini:
+		return getname(user).lower() in ini.users.banned
 
 def ismod(user):
 	if False and iMan.loaded('roster'):
 		return 'mod' in iMan.config[getname(user).lower()].rank
-	return getname(user).lower() in iMan.config.users.mod
+	with Config(get_module, 'roster') as ini:
+		return getname(user).lower() in ini.users.mod
 
 def isadmin(user):
 	if False and iMan.loaded('roster'):
 		return 'admin' in iMan.config[getname(user).lower()].rank
-	return getname(user).lower() in iMan.config.users.admin
+	with Config(get_module(), 'roster') as ini:
+		return getname(user).lower() in ini.users.admin
 
 
 #=====
 #= Misc (Ordered Alphabetically)
 def addUser(jid):
-	jid = unicode(jid.getStripped())
+	jid = unicode(jid.bare)
 	iMan.set_entry('roster', jid, "last_login", time.time())
 	iMan.set_entry('roster', jid, "last_message", time.time())
 	set_attr(jid, 'rank', const.RANK_USER)
@@ -205,7 +204,8 @@ def formattime(time_tuple, format=''):
 
 	"""
 	if not format:
-		format = iMan.config.system.get('timeformat', '')
+		with Config(get_module(), 'config') as ini:
+			format = ini.system.get('timeformat', '')
 
 	return time.strftime(format, time_tuple)
 
@@ -227,7 +227,8 @@ def split_target(target):
 
 
 def is_plugin(args):
-	return args in iMan.config.system.plugins
+	with Config(get_module, 'roster') as ini:
+		return args in ini.system.plugins
 
 def isuser(bot, user):
 	"Return True if the user exists in the bot."
@@ -325,7 +326,7 @@ def sortdict(dict, item="key"):
 def confirmdir(path):
 	if not os.path.isdir(path):
 		os.mkdir(path)
-		print "ALERT: A directory doesn't exist, making folder \"%s\"" % path
+		print("ALERT: A directory doesn't exist, making folder \"%s\"" % path)
 	return
 
 def open_if_exists(filename, mode='r'):
@@ -335,7 +336,7 @@ def open_if_exists(filename, mode='r'):
 	"""
 	try:
 		return file(filename, mode)
-	except IOError, e:
+	except IOError as e:
 		if e.errno not in (errno.ENOENT, errno.EISDIR):
 			raise
 
@@ -446,6 +447,6 @@ def debug(tag, msg):
 	try:
 		tags = iMan.config.system.get("debugtag", [])
 		if tag in tags or 'all' in tags:
-			print "DEBUG:",msg
+			print("DEBUG: %s" % msg)
 	except:
-		print "DEBUG:",msg
+		print("DEBUG: %s" % msg)

@@ -27,14 +27,20 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from	common	import utils
+from common	import utils
 
-from 	core.const	import *
+from core.locations import *
 
 try:
-	exec(utils.get_import(
-		mod=utils.get_module(), from_=['const'], import_=['*']))
+	exec(
+		utils.get_import(
+			mod=utils.get_module(),
+			from_=['locations'],
+			import_=['*']
+		)
+	)
 except ImportError as e:
 	# If the bot module doesn't overwrite anything, no problem.
-	if e.args[0] != "No module named const":
+	# If the bot module doesn't overwrite anything, no problem.
+	if e.args[0] != "No module named locations":
 		raise

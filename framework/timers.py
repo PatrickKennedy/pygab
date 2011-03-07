@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 class TimerFramework:
+	def __init__(self):
+		self.timers = NamedThreadPool()
+
 	def process_timers(self):
 		"""processTimers() -> None
 
@@ -55,7 +58,10 @@ class TimerFramework:
 		Delete an event's timer instance.
 
 		"""
-		self.timers.remove(timer_name)
+		if isinstance(timer_name, str):
+			self.timers.remove(timer_name)
+		else:
+			self.timers.remove_by_obj(timer_name)
 
 class ThreadPool:
 	"""Enhanced threads list as class

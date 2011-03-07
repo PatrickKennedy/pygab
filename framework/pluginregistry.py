@@ -110,7 +110,7 @@ class PluginRegistry(Registry):
 
 	def append(self, cls):
 		if cls.name in self.plugins:
-			print "WARNING: The Plugin Class %s Has been Overwritten" % cls.name
+			print("WARNING: The Plugin Class %s Has been Overwritten" % cls.name)
 		self.plugins[cls.name] = cls
 
 	def remove(self, cls):
@@ -123,19 +123,28 @@ class LocationRegistry(Registry):
 	# instead of:
 	# `Locations.plguins.get("EvMsg")
 	def __getattr__(self, attr):
+		if attr == "plugins":
+			if 'plugins' in self.__dict__:
+				return self.__dict__['plugins']
+			else:
+				raise AttributeError
 		a = self.plugins.get(attr, None)
-		if not a:
-			a = super(LocationRegistry, self).__getattr__(attr)
+		#if a is None:
+		#	a = super(LocationRegistry, self).__getattr__(attr)
 		return a
 
 	def __dir__(self):
 		return self.plugins.keys()
+
+	def __iter__(self):
+		return iter(self.plugins.values())
 
 	@staticmethod
 	def container(): return {}
 	def append(self, cls): self.plugins[cls.__name__] = cls
 
 	def remove(self, cls): del self.plugins[cls.__name__]
+
 
 class Locations:
 	"""Stores Location classes in a centralized location.

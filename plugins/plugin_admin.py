@@ -27,19 +27,18 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from __future__ import with_statement
+import argparse
+import os
+import shlex
+import sys
+import time
 
+from datetime	import	datetime
 
-import	argparse
-import	os
-import	shlex
-import	sys
-import	time
+from common import const, mounts, utils
+from common.locations import Locations
+from common.pyni import Config
 
-from	datetime	import	datetime
-
-from	common			import argparse, const, mounts, utils
-from	common.ini		import	iMan
 #from	common.utils	import	*
 #module = get_module()
 #exec(get_import(mod=module, from_=['utils']))
@@ -48,7 +47,9 @@ from	common.ini		import	iMan
 #except ImportError, e:
 #	print e
 
-class GrantAdmin(mounts.CommandMount):
+Command = Locations.Command
+
+class GrantAdmin(Command):
 	name = 'grant'
 	rank = const.RANK_HIDDEN
 	file = __file__
@@ -56,49 +57,50 @@ class GrantAdmin(mounts.CommandMount):
 	grant_pass = 'BaconIsYummy'
 	plugin_name = os.path.split(__file__)[1]
 	plugin_name = os.path.splitext(plugin_name)[0]
-	if iMan.load([utils.get_module(), 'plugins', plugin_name]):
-		if 'grant_pass' not in iMan[plugin_name]:
-			iMan[plugin_name].grant_pass = grant_pass
+	with Config(utils.get_module(), 'plugins', plugin_name) as ini:
+		if 'grant_pass' not in ini:
+			ini.grant_pass = grant_pass
 		else:
-			grant_pass = iMan[plugin_name].grant_pass
-		iMan[plugin_name]._comments['grant_pass'] = '# This is the password' \
+			grant_pass = ini.grant_pass
+		ini._comments['grant_pass'] = '# This is the password' \
 			'that needs to be passed to !grant to grant the caller admin status.'
-		iMan.unload(plugin_name)
 
-	def thread(self, user, args):
+	@classmethod
+	def thread(self, bot):
+		user, args = yield
+
 		if args == self.grant_pass:
-			iMan.load([utils.get_module(), 'roster'])
-			iMan.roster[utils.getname(user).lower()].rank = const.RANK_ADMIN
-			iMan.unload('roster')
-			self.parent.sendto(user, "You've been granted Admin status.")
+			with Config(utils.get_module(), 'roster') as roster:
+				roster[utils.getname(user).lower()].rank = const.RANK_ADMIN
+			bot.sendto(user, "You've been granted Admin status.")
 
-class Echo(mounts.CommandMount):
-	name = 'echo'
-	rank = const.RANK_USER
-	file = __file__
 
-	def thread(self, user, args):
-		self.parent.sendto(user, args)
-
-class RawMsg(mounts.CommandMount):
+class RawMsg(Command):
 	name = 'raw'
 	rank = const.RANK_ADMIN
 	file = __file__
 
-	def thread(self, user, args):
-		self.parent.sendtoall(args)
+	@classmethod
+	def thread(self, bot):
+		user, args = yield
 
-class Whisper(mounts.CommandMount):
+		bot.sendtoall(args)
+
+
+class Whisper(Command):
 	name = 'sm'
 	rank = const.RANK_ADMIN
 	file = __file__
 
+	@classmethod
+	def thread(self, bot):
+		user, args = yield
 
-	def thread(self, user, args, whisper):
 		target, msg = utils.split_target(args)
-		self.parent.sendto(target, msg)
+		bot.sendto(target, msg)
 
-class ToggleCommand(mounts.CommandMount):
+
+class ToggleCommand(Command):
 	name = 'toggle'
 	rank = const.RANK_ADMIN
 	file = __file__
@@ -106,245 +108,106 @@ class ToggleCommand(mounts.CommandMount):
 	__doc__ = 'Disabled a command without unloading the whole plugin. \n' \
 				'Usage: !toggle cmd_name'
 
-	def thread(self, user, names):
-		if ',' in names:
-			names = names.split(',')
-		else:
-			names = [names]
-		for name in names:
+	@classmethod
+	def thread(self, bot):
+		user, names = yield
+
+		for name in names.split(','):
 			name = name.strip()
-			cmd = self.plugins.get(name)
+			cmd = self.hooks.get(name)
 			if not cmd:
-				self.parent.sendto(user, "Unknown Command: %s" % name)
+				bot.sendto(user, "Unknown Command: %s" % name)
 				return
 
 			if cmd.rank == const.RANK_DISABLED:
-				self.parent.sendto(user, 'Command Enabled: %s' % name)
+				bot.sendto(user, 'Command Enabled: %s' % name)
 				cmd.rank = cmd.prev_rank
 				del cmd.prev_rank
 			else:
-				self.parent.sendto(user, 'Command Disabled: %s' % name)
+				bot.sendto(user, 'Command Disabled: %s' % name)
 				cmd.prev_rank = cmd.rank
 				cmd.rank = const.RANK_DISABLED
 
-class ForgetUser(mounts.CommandMount):
+
+class ForgetUser(Command):
 	name = 'forget'
 	rank = const.RANK_ADMIN
 	file = __file__
 
 	__doc__ = "Remove a user's information from the roster"
 
-	def thread(self, user, args):
-		iMan.load([utils.get_module(), 'roster'])
-		args = args.lower()
-		if args in iMan.roster.keys():
-			del iMan.roster[args]
-			self.parent.sendto(user, 'Removed %s from the roster' % args)
-		else:
-			self.parent.sendto(user, 'Unknown User: %s' % args)
-		iMan.unload('roster')
+	@classmethod
+	def thread(self, bot):
+		user, args = yield
 
-class HookIgnoreUser(mounts.HookMount):
+		with Config(utils.get_module(), 'roster') as roster:
+			args = args.lower()
+			if args in roster.keys():
+				del roster[args]
+				bot.sendto(user, 'Removed %s from the roster' % args)
+			else:
+				bot.sendto(user, 'Unknown User: %s' % args)
+
+
+class HookIgnoreUser(Locations.EvMsg):
 	name = 'ignore'
-	loc = [const.LOC_EV_MSG]
+	#loc = [const.LOC_EV_MSG]
 	file = __file__
-	priority = const.PRIORITY_CRITICAL
+
+	@classmethod
+	def thread(self, bot):
+		while True:
+			user, msg = yield
+			with Config(utils.get_module(), 'roster') as roster:
+				if 'blocked' in roster[utils.getname(user).lower()]:
+					yield True
+					continue
+
+			yield False
 
 
-	def thread(self, msg):
-		user = msg.from_user
-		if iMan.loaded('roster') and iMan.roster[utils.getname(user).lower()].has_key('blocked'):
-			return True
-
-class IgnoreUser(mounts.CommandMount):
+class IgnoreUser(Command):
 	name = 'ignore'
 	rank = const.RANK_ADMIN
 	file = __file__
 
-	__doc__ = "Make the bot ignore imput from the user. \n Usage: !block <username>"
+	__doc__ = "Make the bot ignore imput from the user. \n Usage: !ignored <username>"
 
+	@classmethod
+	def thread(self, bot):
+		user, target = yield
 
-	def thread(self, user, target):
-		if not iMan.loaded('roster'):
-			self.parent.sendto(user, "The roster isn't loaded. I am unable to block users")
-			return
-
-		unix_target = target.lower()
-		if iMan.roster.has_key(unix_target):
-			if iMan.roster[unix_target].has_key('blocked'):
-				self.parent.sendto(user, "%s is already blocked." % target)
-				return
+		with Config(utils.get_module(), 'roster') as roster:
+			unix_target = target.lower()
+			if roster.has_key(unix_target):
+				if roster[unix_target].has_key('ignored'):
+					bot.sendto(user, "%s is already ignored." % target)
+				else:
+					roster[unix_target].ignored = True
+					bot.sendto(user, "I am no longer accepting input from %s." % target)
 			else:
-				iMan.roster[unix_target].blocked = True
-				self.parent.sendto(user, "I am no longer accepting input from %s." % target)
-				return
-		else:
-			iMan.roster[unix_target].blocked = True
-			self.parent.sendto(user, "I am no longer accepting input from %s. NOTE: I don't know who that is." % target)
-			return
+				roster[unix_target].ignored = True
+				bot.sendto(user, "I am no longer accepting input from %s. NOTE: I don't know who that is." % target)
 
-class UnignoreUser(mounts.CommandMount):
+
+class UnignoreUser(Command):
 	name = 'unignore'
 	rank = const.RANK_ADMIN
 	file = __file__
 
-	__doc__ = "Allow the user to interact with the bot. \n Usage: !unblock <username>"
+	__doc__ = "Allow the user to interact with the bot. \n Usage: !unignored <username>"
 
+	@classmethod
+	def thread(self, bot):
+		user, target = yield
 
-	def thread(self, user, target):
-		if not iMan.loaded('roster'):
-			self.parent.sendto(user, "The roster isn't loaded. I am unable to unblock users")
-			return
-
-		unix_target = target.lower()
-		if iMan.roster.has_key(unix_target):
-			if not iMan.roster[unix_target].has_key('blocked'):
-				self.parent.sendto(user, "%s is not blocked." % target)
-				return
+		with Config(utils.get_module(), 'roster') as roster:
+			unix_target = target.lower()
+			if roster.has_key(unix_target):
+				if not roster[unix_target].has_key('ignored'):
+					bot.sendto(user, "%s is not ignored." % target)
+				else:
+					del roster[unix_target].ignored
+					bot.sendto(user, "I am now accepting input from %s." % target)
 			else:
-				del iMan.roster[unix_target].blocked
-				self.parent.sendto(user, "I am now accepting input from %s." % target)
-				return
-		else:
-			self.parent.sendto(user, "I don't know who %s is, therefore they cannot have been blocked." % target)
-			return
-
-class LoadParser(object):
-	rank = const.RANK_ADMIN
-	file = __file__
-
-	load_parser = argparse.ArgumentParser(prog='!(re|un)load', add_help=False)
-	load_parser.add_argument(
-		'extra',
-		default=False, nargs='?',
-		metavar='command', help='Start, stop, restart'
-	)
-	load_parser.add_argument(
-		'-a', '--all',
-		action='store_true',
-		help='Equvilant to -p -i'
-	)
-	load_parser.add_argument(
-		'-f', '--force',
-		action='store_true',
-		help='force an action'
-	)
-	load_parser.add_argument(
-		'-p', '--plugin',
-		const=True, default=False, nargs='?',
-		metavar='plugin_name', help='(re|un)load plugins'
-	)
-	load_parser.add_argument(
-		'-i', '--ini',
-		const=True, default=False, nargs='?',
-		metavar='ini_name', help='(re|un)load inis'
-	)
-
-class Reload(mounts.CommandMount, LoadParser):
-	name = 'reload'
-
-	__doc__ = """Reload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
-
-
-	def thread(self, user, args):
-		options = self.load_parser.parse_args(shlex.split(args.lower()))
-
-		if options.extra:
-			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
-			return
-
-		if options.ini is True or options.all:
-			iMan.readall()
-			self.parent.sendto(user, 'I have read all ini\'s')
-		elif options.ini:
-			iMan[options.ini].read()
-			self.parent.sendto(user, 'I have read the ini (%s)' % options.ini)
-
-
-		if options.plugin is True or options.all:
-			plugins_to_load = self.parent._pluginhash.keys()
-			if False:
-				plugins_to_load = iMan.config.system.plugins
-				if isinstance(plugins_to_load, basestring):
-					plugins_to_load = plugins_to_load.split(' ')
-		elif options.plugin:
-			plugins_to_load = [options.plugin]
-
-		if options.plugin or options.all:
-			if not options.force:
-				plugins_to_load = [x for x in plugins_to_load
-								   if self.parent.plugin_changed(x)]
-			self.parent.unload_plugins(plugins_to_load)
-			loaded = self.parent.load_plugins(plugins_to_load)
-			if not loaded:
-				self.parent.sendto(user, "No plugins required reloading.")
-			else:
-				self.parent.sendto(user, "Plugins reloaded: %s" % ", ".join(loaded))
-
-	# When we're reloading THIS command is active and can't be unloaded.
-	def __exit__(*args): pass
-
-class Load(mounts.CommandMount, LoadParser):
-	name = 'load'
-
-	__doc__ = """Load parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
-
-
-	def thread(self, user, args):
-		options = self.load_parser.parse_args(shlex.split(args.lower()))
-
-		if options.extra:
-			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
-			return
-
-		if options.ini is True:
-			self.parent.error(user, "You must pass the name of an ini to load.")
-		elif options.ini:
-			if iMan.load(options.ini):
-				self.parent.sendto(user, 'I have successfully loaded the ini (%s)' % options.ini)
-			else:
-				self.parent.sendto(user, 'I can\'t load the ini (%s)' % options.ini)
-
-		if options.plugin is True:
-			self.parent.error(user, "You must pass the name of a plugin to load.")
-		elif options.plugin:
-			loaded = self.parent.load_plugins([options.plugin])
-
-			if not loaded:
-				self.parent.sendto(user, "The %s plugin is already loaded." % options.plugin)
-			else:
-				self.parent.sendto(user, "Plugins loaded: %s" % ", ".join(loaded))
-
-
-
-class Unload(mounts.CommandMount, LoadParser):
-	name = 'unload'
-
-	__doc__ = """Unload parts of the bot.\n%s""" % (LoadParser.load_parser.format_help())
-
-
-	def thread(self, user, args):
-		options = self.load_parser.parse_args(shlex.split(args.lower()))
-
-		if options.extra:
-			self.parent.error(user, "Please use one of the arguments. Ex. -p user, -i roster")
-			return
-
-		if options.ini is True:
-			self.parent.error(user, "You must pass the name of an ini to unload.")
-		elif options.ini:
-			if iMan.unload(options.ini):
-				self.parent.sendto(user, 'I have successfully unloaded the ini (%s)' % options.ini)
-			else:
-				self.parent.sendto(user, 'I can\'t unload the ini (%s)' % options.ini)
-
-
-		if options.plugin is True:
-			self.parent.error(user, "You must pass the name of a plugin to unload.")
-		elif options.plugin:
-			names = [options.plugin]
-			unloaded = self.parent.unload_plugins(names)
-			self.parent.sendto(user, "Plugins unloaded: %s" % ", ".join(unloaded))
-
-	# In the event we unload this plugin THIS command is active and can't be unloaded.
-	def __exit__(*args): pass
+				bot.sendto(user, "I don't know who %s is, therefore they cannot have been ignored." % target)

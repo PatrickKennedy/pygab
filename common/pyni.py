@@ -27,14 +27,16 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from __future__ import with_statement
-
+import ast
+import logging
 import os
 
+from os.path import abspath, curdir, join
 from collections import defaultdict
-from StringIO import StringIO
+from io import StringIO
 
 __version__ = '0.2.3'
+_logger = logging.getLogger('pyni')
 
 def sterilize_comment(comment):
 	"""Sterilize all lines of a comment.
@@ -91,8 +93,7 @@ class ConfigNode(defaultdict):
 		sub_sections = []
 
 		# Allows us to sort the child assignments alphabetically
-		children = self.items()
-		children.sort()
+		children = sorted(self.items())
 		for key, value in children:
 			# If we're handling a dictionary
 			if isinstance(value, defaultdict):
@@ -130,12 +131,12 @@ class ConfigRoot(ConfigNode):
 		self._encoding = encoding
 
 	def read(self, clear=True):
-		self.parse_config()
+		self.parse_config(clear)
 
 	def parse_config(self, clear=True):
 		if not os.path.exists(self._filename):
-			print "Creating %s" % self._filename
-		with open(self._filename, 'a+') as f:
+			_logger.info("Creating %s" % self._filename)
+		with open(self._filename, 'r') as f:
 			self.parse_config_file(f, clear)
 
 	def parse_config_list(self, list_, clear=True):
@@ -145,7 +146,6 @@ class ConfigRoot(ConfigNode):
 		# True as long as each consecutive line is in section format
 		in_header = True
 		# Contains all lines of a comment block. Emptied when exiting a block.
-		# TODO: Implement comment reading/writing
 		comment_lines = []
 		# True if the comment belongs to a section rather than value
 		section_comment = False
@@ -154,7 +154,7 @@ class ConfigRoot(ConfigNode):
 			if not line:
 				continue
 
-			if line.startswith('#'):
+			if line.startswith('#') or line.startswith(';'):
 				comment_lines.append(line)
 				continue
 
@@ -176,7 +176,8 @@ class ConfigRoot(ConfigNode):
 			key, value = line.split('=', 1)
 			key, value = key.strip(), value.strip()
 			# TODO: Upgrade to ast.eval_literal in Python 2.6
-			node[key] = eval(compile(value, self._filename + ' line: %d' % (index+1), 'eval'))
+			#node[key] = eval(compile(value, self._filename + ' line: %d' % (index+1), 'eval'))
+			node[key] = ast.literal_eval(value)
 
 			if comment_lines:
 				comment_block = '\n'.join(comment_lines)
@@ -194,8 +195,26 @@ class ConfigRoot(ConfigNode):
 		self.parse_config_list((line.rstrip('\n') for line in file_), clear)
 
 	def save(self, filename=None):
-		with file(filename or self._filename, 'w+') as f:
+		with open(filename or self._filename, 'w+') as f:
 			self._output(stream=f)
+
+class Config(ConfigRoot):
+	def __init__(self, *path, encoding="utf-8"):
+		path = list(path)
+		path.insert(0, curdir)
+		name = path.pop().lower()
+		path.append("%s.ini" % name)
+		ConfigRoot.__init__(self, abspath(join(*path)), encoding)
+
+	def __enter__(self):
+		self.read()
+		return self
+
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		if exc_type:
+			self.save()
+			return False
+
 
 if __name__ == '__main__':
 	import sys
@@ -208,14 +227,14 @@ if __name__ == '__main__':
 
 	c = ConfigRoot(input)
 	try:
-		print "DEBUG: Parsing File (%s)" % input
+		_logging.debug("DEBUG: Parsing File (%s)" % input)
 		c.parse_config()
-	except IOError, e:
+	except IOError:
 		pass
 	finally:
 		if not c:
-			print "DEBUG: Empty/Unknown File"
-			print "DEBUG: Using Defaults"
+			_logging.debug("DEBUG: Empty/Unknown File")
+			_logging.debug("DEBUG: Using Defaults")
 			c._comments['breakfast'] = 'This sounds like a lovely breakfast ^^'
 			c.breakfast = ['bacon', 'eggs', 'pancakes', 'orange juice']
 			c.x = 3.14159
@@ -230,9 +249,9 @@ if __name__ == '__main__':
 			c.server.ports.telnet = 23
 			c.server.ports.http = 80
 	#print "First Parse:\n%s\n" % c
-	print "DEBUG: Saving File (%s)" % output
+	_logging.debug("DEBUG: Saving File (%s)" % output)
 	c.save(output)
-	print "DEBUG: Reparsing outputed file"
+	_logging.debug("DEBUG: Reparsing outputed file")
 	c = ConfigRoot(output)
 	c.parse_config()
 	#print "Second Parse:\n%s\n" % c

@@ -36,26 +36,40 @@ import re
 import sys
 import traceback
 
-from	common	import const, mounts, utils
-from	common.ini	import iMan
+from common	import const, mounts, utils
+from common.ini	import iMan
+from common.locations import Locations
 
-_plugin_log = logging.getLogger('pygab.plugins')
+plugin_log = logging.getLogger('pygab.plugins')
 _handler = logging.handlers.RotatingFileHandler(
 	os.path.join('.', utils.get_module(), 'plugin_errors.log'),
 	maxBytes=256000, backupCount=3, encoding='utf-8', delay=True
 )
 _handler.setLevel(logging.ERROR)
-_plugin_log.addHandler(_handler)
+plugin_log.addHandler(_handler)
 
 def attach_hooks(hook_name=''):
 	"""Attach both pre- and -post hooks.
 
 	"""
 	def decorator(func):
-		def wrapper(self, *args):
-			self.hook('%s_pre' % (hook_name or func.__name__), *args)
-			func(self, *args)
-			self.hook('%s_post' % (hook_name or func.__name__), *args)
+		def wrapper(self, *args, **kwargs):
+			name = hook_name or func.__name__
+
+			pre_hook = Locations.plugins.get('Pre%s' % name)
+			if not pre_hook:
+				plugin_log.error("Missing Pre Hook for %s" % name)
+			else:
+				pre_hook.evaluate(*args, **kwargs)
+
+			func(self, *args, **kwargs)
+
+			post_hook = Locations.plugins.get('Post%s' % name)
+			if not post_hook:
+				plugin_log.error("Missing Post Hook for %s" % name)
+			else:
+				post_hook.evaluate(*args, **kwargs)
+
 		return wrapper
 	return decorator
 
@@ -70,9 +84,16 @@ def attach_post_hook(hook_name=''):
 
 	"""
 	def decorator(func):
-		def wrapper(self, *args):
-			func(self, *args)
-			self.hook('%s_post' % (hook_name or func.__name__), *args)
+		def wrapper(self, *args, **kwargs):
+			name = hook_name or func.__name__
+
+			func(self, *args, **kwargs)
+
+			post_hook = Locations.plugins.get('Post%s' % name)
+			if not post_hook:
+				plugin_log.error("Missing Post Hook for %s" % name)
+			else:
+				post_hook.evaluate(*args, **kwargs)
 		return wrapper
 	return decorator
 
@@ -84,136 +105,147 @@ class PluginFramework(object):
 
 	"""
 
-	def __init__(self, folder_name="plugins", name_format="plugin_%s.py"):
+	def __init__(self, host, folder_name="plugins", name_format="plugin_%s.py"):
+		self.host = host
 		#Plugin hashing dictionary
 		self._pluginhash = {}
-		self.pluginpaths = [utils.get_module(), '']
+		self.loaded = set() # A unique list
+		self.search_paths = [utils.get_module(), '']
 		self.folder_name = folder_name
 		self.name_format = name_format
 
-	def get_plugin_path(self, name):
+	def path_for(self, name):
 		"""
 
 		Return the first valid path, other wise return None if no path was found.
 
 		"""
-		for path in self.gen_plugin_paths(self.pluginpaths, name):
+		for path in self.paths_for(name):
 			return path
 		else:
 			return None
 
-	def get_plugin_paths(self, name):
-		"""
-
-		Return the first valid path, other wise return None if no path was found.
-
-		"""
-		return list(self.gen_plugin_paths(self.pluginpaths, name))
-
-
-
-	def gen_plugin_paths(self, plugin_paths, name):
+	def paths_for(self, name, search_paths=None):
 		"""
 
 		Generate valid plugin paths.
 
 		"""
-		for folder in plugin_paths:
-			plug_path = os.path.abspath(
+		search_paths = search_paths or self.search_paths
+
+		for folder in search_paths:
+			path = os.path.abspath(
 				os.path.join(
 					'.', folder, self.folder_name,
 					self.name_format % name
 				)
 			)
-			if os.path.exists(plug_path):
-				yield plug_path
+			if os.path.exists(path):
+				yield path
 
-	def plugin_changed(self, plugin_name, plugin_source=None):
-		"""Return True if a plugin's source has changed"""
+	def changed(self, name):
+		"""
 
-		if not plugin_source:
-			path_ = self.get_plugin_path(plugin_name)
-			with open(path_, "r") as f:
-				plugin_source = f.read()
-
-		return self._pluginhash.get(plugin_name, 0) != hash(plugin_source)
-
-	def load_plugins(self, plugins):
-		"""load_plugins(plugins: list<str>) -> list
-
-		Load each plugin name passed in `plugins`
-		Return a list of successfully loaded plugins.
+		Return True if at least one file related to the plugin has changed.
 
 		"""
-		loaded = []
-		for plugin_name in plugins:
-			if self.load_plugin(plugin_name):
-				loaded.append(plugin_name)
+		# Returning a generator means the check is at most O(n) operations
+		# rather than always being O(n).
+		for path in self.files_changed(name):
+			return True
+		return False
 
+	def files_changed(self, name):
+		"""
+
+		Return a generator list of changed files related to a plugin.
+
+		"""
+		return (
+			path
+			for path in self.paths_for(name)
+			if self.file_changed(path)
+		)
+
+		#for path in self.paths_for(name):
+		#	if self.file_changed(path):
+		#		yield path
+
+	def file_changed(self, path, source=None):
+		"""Return True if a plugin's specific has changed"""
+
+		if not source:
+			with open(path, "r") as f:
+				source = f.read()
+
+		return self._pluginhash.get(path, 0) != hash(source)
+
+	def load(self, *names):
+		loaded = []
+		for name in names:
+			plugin_log.info("Attempting to load plugin: %s" % name)
+			paths = list(self.paths_for(name))
+			if not paths:
+				plugin_log.warning('The plugin "plugin_%s.py" could not be found.' % name)
+				# TODO: Add check to see if the bot is connected before trying to
+				# send errors to people.
+				if self.active_user:
+					self.error(self.active_user, 'The plugin "plugin_%s.py" could not be found.' % name)
+				continue
+
+			plugin_namespace = {}
+
+			successfully_loaded = 0
+			for path in paths:
+				plugin_namespace["__file__"] = path
+				try:
+					self._load(name, path, plugin_namespace)
+				except:
+					plugin_log.exception('There was an error importing %s' % path)
+					self._unload(name, path)
+				else:
+					successfully_loaded += 1
+
+			# If the plugin has any initialization to be run, handle that here.
+			initializer = Locations.Initializers.hooks.get(name)
+			if initializer:
+				initializer(self.host).process()
+
+			if successfully_loaded:
+				loaded.append(name)
 		return loaded
 
-	def load_plugin(self, name):
-		paths = self.get_plugin_paths(name)
-		if not paths:
-			# TODO: Add check to see if the bot is connected before trying to
-			# send errors to people.
-			if self.active_user:
-				self.error(self.active_user, 'The plugin "plugin_%s.py" could not be found.' % name)
-			return
-
-		plugin_namespace = {}
-
-		for path in paths:
-			plugin_namespace["__file__"] = path
-			try:
-				if self._load_plugin(name, path, plugin_namespace):
-					return True
-			except:
-				traceback.print_exc()
-				print '\n'
-				self._unload_plugin(path)
-				#utils.debug('plugins', 'There was an error importing the plugin. A report has been logged.')
-				_plugin_log.error('There was an error importing %s\n%s' % (name, traceback.format_exc()))
-
-				#utils.confirmdir("errors")
-				#with file(os.path.join('.', 'errors', "PluginError-%s.log" % self.module), "a+") as pluglog:
-				#	print >>pluglog, "\n Plugin error log for: ", plugin_name
-				#	traceback.print_exc(None, pluglog)
-
-		# If the plugin has any initialization to be run, handle that here.
-		initializer = mounts.PluginInitializers.plugins.get(name)
-		if initializer:
-			initializer(self).initialize()
-
-
-
-	def _load_plugin(self, name, path, namespace):
+	def _load(self, name, path, namespace):
 		"""load_plugin(path_: str) -> bool
 
-		Load `path_` and attempt to execute.
-		Return True if it was executed.
-		Return False if no changes were made (ie. not executed).
+		Load `path` and attempt to execute.
+		Return:
+			True if it was executed.
+			False if no changes were made (ie. not executed).
 
 		"""
 
 		with open(path, "r") as f:
 			a = f.read()
 		# Skip plugins that haven't been updated.
-		if not self.plugin_changed(name, a):
+		if not self.file_changed(path, a):
 			return False
 
 		# Replicate __file__ in the plugin, since it isn't set by the
 		# interpreter when it executes a string.
-		# We're using __file__ to know what command classes to unload.
-		exec compile(a, 'plugin_%s.py' % name, 'exec') in namespace
+		# __file__ lets us know what hooks to unload.
+		#exec(compile(a, 'plugin_%s.py' % name, 'exec'), namespace)
+		exec(compile(a, path, 'exec'), namespace)
 
 		#utils.debug('core', "Loading Plugin (%s)" % path_)
-		_plugin_log.info("Loading Plugin (%s)" % path)
-		self._pluginhash[name] = hash(a)
+		plugin_log.info("Loading Plugin (%s: %s)" % (name, path))
+		self._pluginhash[path] = hash(a)
+		self.loaded.add(name)
 		return True
 
-	def unload_plugins(self, plugins):
-		"""unload_plugins(plugins: list<str>) -> list
+
+	def unload(self, *plugins):
+		"""unload(plugins: list<str>) -> list
 
 		Unload each plugin name passed in `plugins`
 		Return a list of successfully unloaded plugins.
@@ -221,156 +253,23 @@ class PluginFramework(object):
 		"""
 
 		unloaded = []
-		for plugin_name in plugins:
-			if plugin_name not in self._pluginhash:
-				self.error(self.active_user, "The %s plugin hasn't been loaded or was"
-						   " misspelled." % plugin_name)
+		for name in plugins:
+			if name not in self.loaded:
+				self.error(self.active_user, "The plugin (%s) hasn't been"
+						   " loaded or was misspelled." % name)
 				continue
 
-			plugin_path = self.get_plugin_path(plugin_name)
-			if not plugin_path:
-				self.error(self.active_user, "The %s plugin is loaded but I can't find the"
-						   " file to unload it." % plugin_name)
-				continue
+			for path in list(self.paths_for(name)):
+				self._unload(name, path)
+				del self._pluginhash[path]
 
-			self._unload_plugin(plugin_path)
-			del self._pluginhash[plugin_name]
-			unloaded.append(plugin_name)
+			self.loaded.remove(name)
+			unloaded.append(name)
 
 		return unloaded
 
-	def _unload_plugin(self, path_):
-		utils.debug('core', "Unloading Plugin (%s)" % path_)
-		initializer = mounts.PluginInitializers.plugins.get(path_)
-		if initializer:
-			if isinstance(initializer, type):
-				initializer.remove(initializer)
-			else:
-				initializer.__exit__()
-
-		for cmd in mounts.CommandMount.get_plugin_list(file=path_):
-			if isinstance(cmd, type):
-				cmd.remove(cmd)
-			else:
-				cmd.__exit__()
-
-		for hook in mounts.HookMount.get_plugin_list(file=path_):
-			if isinstance(hook, type):
-				hook.remove(hook)
-			else:
-				hook.__exit__()
-
-	def hook(self, loc, *args, **kwargs):
-		'''hook(str, loc, *args, **kwargs) -> bool
-
-		All hooks at 'loc' are processed with the passed args.
-		If any hook returns a True value hook will return True to signal the
-		calling function to break execution.
-
-		'''
-
-		# If True the calling function should break execution
-		break_ = False
-
-		for hook in mounts.HookMount.get_plugin_list(loc=loc):
-			# Class objects are types while class instances are not.
-			# This means if the hook is not a type it's already been initialized
-			if isinstance(hook, type):
-				# Initialize the hook to define it's default variables.
-				hook = hook(self)
-
-			# Process the next frame of the hook's generator.
-			break_ |= bool(hook.process(*args, **kwargs))
-
-		return break_
-
-
-		for hook in mounts.HookMount.get_plugin_list(
-			loc=loc, critical=True, persist=None):
-			if hook(self).run(*args, **kwargs):
-				return False
-
-		for hook in mounts.HookMount.get_plugin_list(
-			loc=loc, persist=True, critical=None):
-			hook(self).run(*args, **kwargs)
-
-		for hook in mounts.HookMount.get_plugin_list(
-			loc=loc, persist=None, critical=None):
-			if hook(self).run(*args, **kwargs):
-				return False
-		return True
-
-	def command_depreciated(self, user, text, msg):
-		args = ''
-		text = text.strip()
-		if " " in text:
-			cmd, args = text.split(" ",1)
-			cmd = cmd.lower()
-		else:
-			cmd = text.lower()
-
-		#FIXME: This is a work around for shlex's poor unicode support.
-		#args = unicode(args, 'utf-8', 'replace')
-		args = args.encode('utf-8', 'replace')
-
-		# <<name>> Prefix. Used by the bot to redirect a whispers output to <name>
-		m = self.redirect_check.search(cmd)
-		if m:
-			self.redirect_to_user = m.group('user')
-			cmd = self.redirect_check.sub('', cmd)
-
-		# [<name>] Prefix. Replaces the calling user with the jid of <name>.
-		m = self.mimic_check.search(cmd)
-		if m and utils.isadmin(user):
-			user = utils.getjid(m.group('user'))
-			cmd = self.mimic_check.sub('', cmd)
-
-		try:
-			cmd_func = mounts.CommandMount.plugins.get(cmd)
-			if not cmd_func:
-				self.error(user, "Unknown command, try !help")
-				return
-
-			# Class objects are types while class instances are not.
-			# When cmd_func is not a type it's already been initialized
-			if isinstance(cmd_func, type):
-				# Initialize the hook to define it's default variables.
-				cmd_func = cmd_func(self)
-
-			#assert isinstance(cmd, CommandMount)
-
-			authorized = True
-			if cmd_func.rank in [const.RANK_USER, const.RANK_HIDDEN]:
-				pass
-
-			elif cmd_func.rank == const.RANK_MOD:
-				if not utils.ismod(user) or not utils.isadmin(user):
-					authorized = False
-					self.error(user, "You must be a moderator to use that command.")
-
-			elif cmd_func.rank == const.RANK_ADMIN:
-				if not utils.isadmin(user):
-					authorized = False
-					self.error(user, "You must be an admin to use that command.")
-
-			else:
-				authorized = False
-				self.error(user, "Unknown command, try !help")
-
-			if authorized:
-				cmd_func.process(user, args)
-
-		except const.CommandHelp, args:
-			self.sys(user, cmd_func.__doc__)
-
-		except const.CommandError, args:
-			self.error(user, 'There was a problem with your command: %s Sorry!' % cmd)
-
-		except StopIteration:
-			pass
-
-		except Exception, e:
-			print 'An error happened in the command: %s' % cmd
-			traceback.print_exc()
-			self.error(user, 'There was a problem with your command: %s. Sorry! \n'
-						'Exception: %r' % (cmd, e))
+	def _unload(self, name, path):
+		plugin_log.info("Unloading Plugin (%s: %s)" % (name, path))
+		for location in Locations:
+			for hook in location.get_hooks_for(path):
+				hook.remove()

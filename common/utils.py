@@ -38,7 +38,7 @@ from core.utils import *
 # 'from utils import *' and the following command. Hooray for clean namespaces.
 try:
 	exec(get_import(mod=get_module(), from_=['utils'], import_=['*']))
-except ImportError, e:
+except ImportError as e:
 	# If the bot module doesn't overwrite anything, no problem.
-	pass
-	#raise
+	if e.args[0] != "No module named utils":
+		raise
