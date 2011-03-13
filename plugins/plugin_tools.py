@@ -27,41 +27,26 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import	datetime
-import	operator
-import	random
-import	re
-import	shlex
-import	threading
+import random
+import re
 
-from	common			import argparse, const, mounts, utils
-from	common.ini		import	iMan
-#from	common.utils	import	*
+from common import const, utils
+from common.locations import Locations
+from common.pyni import Config
 
-#try:
-#	exec(get_import(mod=utils.get_module(), from_=['mounts'],
-#		import_=['PluginInitializers', 'HookMount', 'CommandMount']))
-#except ImportError, e:
-#	print e
+Command = Locations.Command
 
-class Init(mounts.PluginInitializers):
-	name = __file__
-
-	def initialize(self):
-		iMan.load([utils.get_module(), 'roster'])
-
-	def __exit__(self, *args):
-		iMan.unload('roster')
-		mounts.PluginInitializers.remove(self.__class__)
-
-class Calc(mounts.CommandMount):
+class Calc(Command):
 	name = 'calc'
 	rank = const.RANK_USER
 	file = __file__
 
 	__doc__ = "Calculate a mathematical expression. \nSupports variables x, y, and z. \nEx. x=5;y=2;x**y"
 
-	def format(self, e):
+	filter = re.compile('[^\d()*%+-/\sxyz=;]*')
+
+	@staticmethod
+	def format(e):
 		"""Format the expression to set the final value to 'a'"""
 		if ';' in e:
 			x = e.rfind(';')
@@ -70,57 +55,64 @@ class Calc(mounts.CommandMount):
 			e = 'a='+e
 		return e
 
-
-	def thread(self, user, e, whispered):
+	@classmethod
+	def thread(cls, bot):
 		"""Calculate an equation.
 
 		Usage: )calc <math equation>
 		Example: /calc ((1 + 2) * 2) / 2
 
 		"""
+		user, e = yield
+
 		if not e:
-			raise const.CommandHelp
+			raise const.CommandHelp("Missing equation")
 		username = utils.getname(user)
 		answer = {}
+
+		e = e.replace('^', '**')
+		e = cls.filter.sub('', e)
+
 		try:
-			e = re.sub('[^\d()*%+-/\sxyz=;]*', '', e)
-			eval(compile(self.format(e), 'Calc.py', 'single'),
-				 {}, answer)
+			eval(compile(cls.format(e), 'Calc.py', 'single'), {}, answer)
 		except SyntaxError:
-			self.parent.error(user, "Please check your equation for errors.")
+			bot.error(user, "Please check your equation for errors.")
 			return
 		except ZeroDivisionError:
-			if whispered:
-				self.parent.sendto(user, 'Why are you hiding your attempts to '
+			if False or whispered:
+				bot.sendto(user, 'Why are you hiding your attempts to '
 								   'crash the Universe? Try that where everyone '
 								   'can see it, foo!')
 			else:
-				self.parent.sendtoall('%s just tried to divide by zero. Stone him.' % username)
+				bot.sendtoall('%s just tried to divide by zero. Stone him.' % username)
 			return
 
 		answer = answer['a']
-		if self.parent.was_whispered:
-			self.parent.sendto(user, '"%s" => %s' % (e, answer))
+		if False and bot.was_whispered:
+			bot.sendto(user, '"%s" => %s' % (e, answer))
 		else:
-			self.parent.sendtoall('%s: "%s" => %s' % (username, e, answer))
+			bot.sendtoall('%s: "%s" => %s' % (username, e, answer))
 
-class Hack(mounts.CommandMount):
+class Hack(Command):
 	name = 'hack'
 	rank = const.RANK_USER
 	file = __file__
 
+	@classmethod
+	def thread(cls, bot):
+		user, args = yield
+		bot.error(user, "Your IP has been logged.")
 
-	def thread(self, user, msg, whispered):
-		self.parent.error(user, "Your IP has been logged.")
-
-class Roll(mounts.CommandMount):
+class Roll(Command):
 	name = 'roll'
 	rank = const.RANK_USER
 	file = __file__
 
 	__doc__ = "Rolls a random number. " \
 		   "Usage: !roll [<number of dice>[d<number of sides>]]"
-	def thread(self, user, args, whispered):
+
+	@classmethod
+	def thread(self, bot):
 		""""""
 		dice = 1
 		sides = 6
@@ -128,6 +120,8 @@ class Roll(mounts.CommandMount):
 		percentile = False
 		rounded_percentile = False
 		result_msg = ''
+
+		user, args = yield
 
 		if args:
 			if 'd' in args:
@@ -149,35 +143,33 @@ class Roll(mounts.CommandMount):
 				dice = int(dice)
 				sides = int(sides)
 			except:
-				self.parent.error(user, self.__doc__)
+				bot.error(user, self.__doc__)
 				return
 
-			dice, sides = int(dice), int(sides)
-			if dice > 5:
-				dice = 5
-				self.parent.error(user, "The number of dice has been set to 5.")
-			elif dice < 1:
-				dice = 1
-				self.parent.error(user, "The number of dice has been set to 1.")
+			dice = max(1, min(int(dice), 100))
+			sides = max(2, min(int(sides), 100))
+			#if dice > 5:
+			#	dice = 5
+			#	bot.error(user, "The number of dice has been set to 5.")
+			#elif dice < 1:
+			#	dice = 1
+			#	bot.error(user, "The number of dice has been set to 1.")
 
-			if sides > 100:
-				sides = 100
-				self.parent.error(user, "The number of sides has been set to 100.")
-			elif 2 != sides < 4:
-				sides = 4
-				self.parent.error(user, "The number of sides has been set to 4.")
+			#if sides > 100:
+			#	sides = 100
+			#	bot.error(user, "The number of sides has been set to 100.")
+			#elif 2 != sides < 4:
+			#	sides = 4
+			#	bot.error(user, "The number of sides has been set to 4.")
 
-
-		for i in xrange(dice):
-			random.jumpahead(500)
-			rolls.append(random.randint(1, sides))
+		rolls = [random.randint(1, sides) for x in range(dice)]
 
 		if percentile:
 			# Adjust for percentile dice which are 0-9
 			rolls[0] -= 1
 			rolls[1] -= 1
 			# Handle double zeros which are 100%
-			if not rolls[0] and not rolls[1]:
+			if rolls[0] == 0 == rolls[1]:
 				total = 100
 			else:
 				if rounded_percentile:
@@ -186,7 +178,9 @@ class Roll(mounts.CommandMount):
 			result_msg = "rolled %d%%" % (total)
 
 		elif sides != 2:
-			total = reduce(operator.add, rolls)
+			total = 0
+			for x in rolls:
+				total += x
 			result_msg = "rolled %d (%s) with %dd%d" % (
 				total, ', '.join(['%s' % i for i in rolls]), dice, sides)
 
@@ -206,10 +200,10 @@ class Roll(mounts.CommandMount):
 			result_msg = ("flipped a coin %d times which landed on Heads %d "
 			"times and Tails %d times." % (dice, heads, tails))
 
-		if self.parent.was_whispered:
-			self.parent.sendto(user, 'You %s' % result_msg)
+		if False and bot.was_whispered:
+			bot.sendto(user, 'You %s' % result_msg)
 		else:
-			self.parent.sendtoall('%s %s' % (utils.getname(user), result_msg))
+			bot.sendtoall('%s %s' % (utils.getname(user), result_msg))
 
 		return
 		self.systoall("%s rolls %s with %s %s-sided %s\n%s" % (
