@@ -111,8 +111,8 @@ class CommandDispatch(Locations.EvMsg):
 				Command.clean(cmd, user.bare)
 			except Exception as e:
 				log.exception('An error happened in the command: %s' % cmd)
-				bot.error(user, 'There was a problem with your command: %s.'
-								  'Sorry! \nException: %r' % (cmd, e))
+				bot.error(user, 'There was a problem with your command: %s. '
+								  'Sorry! \nException: %s' % (cmd, e))
 		else:
 			bot.error(user, "You're not authorized to use that command.")
 

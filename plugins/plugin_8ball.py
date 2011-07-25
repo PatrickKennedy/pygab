@@ -27,16 +27,12 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import	datetime
-import	random
-import	re
-import	shlex
-import	time
+import random
 
-from	common			import argparse, const, mounts, utils
-from	common.ini		import iMan
+from common import const
+from common.locations import Locations
 
-class EightBall(mounts.CommandMount):
+class EightBall(Locations.Command):
 	name = '8ball'
 	rank = const.RANK_USER
 	file = __file__
@@ -62,11 +58,11 @@ class EightBall(mounts.CommandMount):
 
 	combined_messages = messages + alt_messages
 
-	def thread(self, user, args, whisper):
-		if not args.endswith('?'):
-			raise const.CommandHelp
+	@classmethod
+	def thread(cls, bot):
+		user, question = yield
+		if not question.endswith('?'):
+			bot.sendto(user, cls.__doc__)
 
-		if self.parent.was_whispered:
-			self.parent.sendto(user, random.choice(self.combined_messages))
-		else:
-			self.parent.sendtoall(random.choice(self.combined_messages))
+		bot.sendtoall(random.choice(cls.combined_messages))
+		return

@@ -27,38 +27,19 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import	datetime
-import	re
-import	shlex
-import	time
+import argparse
+import datetime
+import re
+import shlex
+import time
 
-from	common			import argparse, const, mounts, utils
-from	common.ini		import iMan
-#from	common.utils	import *
+from common	import const, utils
+from common.locations import Locations
+from common.pyni import Config
 
-#module = get_module()
-#exec(get_import(mod=module, from_=['utils']))
-#try:
-#	exec(get_import(mod=module, from_=['mounts'],
-#		import_=['PluginInitializers', 'HookMount', 'CommandMount']))
-#except ImportError, e:
-#	print e
+Command = Locations.Command
 
-class Init(mounts.PluginInitializers):
-	name = __file__
-
-	def initialize(self):
-		iMan.load([utils.get_module(), 'roster'])
-		#self.parent.addTimer(5, self.test_timer, repeat=5, type='seconds')
-
-	def test_timer(self):
-		print "Eggs are yummy. %s" % time.clock()
-
-	def __exit__(self, *args):
-		mounts.PluginInitializers.remove(self.__class__)
-		self.parent.removeTimer('test_timer')
-
-class Help(mounts.CommandMount):
+class Help(Command):
 	name = 'help'
 	rank = const.RANK_USER
 	file = __file__
@@ -72,55 +53,54 @@ class Help(mounts.CommandMount):
 
 	__doc__ = """Display this help message.\n%s""" % (help_parser.format_help())
 
-
-
-	def thread(self, user, args):
-		args = self.help_parser.parse_args(shlex.split(args))
+	@classmethod
+	def thread(cls, bot):
+		user, args = yield
+		args = cls.help_parser.parse_args(shlex.split(args))
 		if args.cmd:
-			if args.cmd in mounts.CommandMount.plugins.keys():
-				self.parent.sendto(user, mounts.CommandMount.plugins[args.cmd].__doc__)
+			if args.cmd in Command.hooks:
+				bot.sendto(user, Command.hook[args.cmd].__doc__)
 			else:
-				self.parent.error(user, "I don't know that command (%s)."
+				bot.error(user, "I don't know that command (%s)."
 					" Please check your spelling." % args.cmd)
 			return
 
-		reply = "Cmd Prefix: %s" % (iMan.config.system.commandprefix)
+		with Config(utils.get_module(), 'config') as config:
+			reply = "Cmd Prefix: %s" % (config.system.commandprefix)
 
-		user_cmd_list = []
-		mod_cmd_list = []
-		admin_cmd_list = []
-		disabled_cmd_list = []
-		for cmd in mounts.CommandMount.plugins.itervalues():
-			# Skip commands if a user doesn't match the command's rank.
-			#if cmd.rank == CommandMount.RANK_USER:
+		lists = {
+			const.RANK_USER: [],
+			const.RANK_MOD: [],
+			const.RANK_ADMIN: [],
+			const.RANK_DISABLED: [],
+			const.RANK_HIDDEN: [],
+			const.RANK_BANNED: [],
+		}
+		for (name, cmd) in Command.hooks.items():
+			#TODO: Skip commands if a user doesn't match the command's rank.
+			lists[cmd.rank].append(name)
 
-			if cmd.rank == const.RANK_USER:
-				user_cmd_list.append(cmd.name)
-			elif cmd.rank == const.RANK_MOD:
-				mod_cmd_list.append(cmd.name)
-			elif cmd.rank == const.RANK_ADMIN:
-				admin_cmd_list.append(cmd.name)
-			elif cmd.rank == const.RANK_DISABLED:
-				disabled_cmd_list.append(cmd.name)
+		user_is_mod = utils.ismod(user)
+		user_is_admin = utils.isadmin(user)
 
-		reply += " | User Cmds: "
-		reply += ', '.join(user_cmd_list)
-		if mod_cmd_list and (utils.ismod(user) or utils.isadmin(user)):
-			reply += " | Mod Cmds: "
-			reply += ', '.join(mod_cmd_list)
-		if admin_cmd_list and utils.isadmin(user):
-			reply += " | Admin Cmds: "
-			reply += ', '.join(admin_cmd_list)
-		if disabled_cmd_list and (utils.ismod(user) or utils.isadmin(user)):
-			reply += " | Disabled Cmds: "
-			reply += ', '.join(disabled_cmd_list)
+		reply += " | "
+		reply += ', '.join(lists[const.RANK_USER])
+		if lists[const.RANK_MOD] and (user_is_mod or user_is_admin):
+			reply += '; '
+			reply += ', '.join(lists[const.RANK_MOD])
+		if lists[const.RANK_ADMIN] and user_is_admin:
+			reply += '; '
+			reply += ', '.join(lists[const.RANK_ADMIN])
+		if lists[const.RANK_DISABLED] and (user_is_mod or user_is_admin):
+			reply += " | Disabled: "
+			reply += ', '.join(lists[const.RANK_DISABLED])
 
-		self.parent.sendto(user,reply)
+		bot.sendto(user,reply)
 
 
-class Names(mounts.CommandMount):
+class Names(Command):
 	name = 'w'
-	rank = const.RANK_USER
+	rank = const.RANK_DISABLED
 	file = __file__
 
 	name_parser = argparse.ArgumentParser(prog='!w', add_help=False,
@@ -130,8 +110,8 @@ class Names(mounts.CommandMount):
 	#Setup the doc string with the help text from the argument parser.
 	__doc__ = """List status of users.\n%s""" % (name_parser.format_help())
 
-
-	def thread(self, user, args):
+	@classmethod
+	def thread(cls, bot):
 		statuses ={
 			'admins' : [],
 			'online' : [],
@@ -141,17 +121,18 @@ class Names(mounts.CommandMount):
 			'busy' : []
 		}
 
-		for sid in self.parent.getRoster():
+		user, args = yield
+		for sid in bot.xmpp.roster:
 			i = utils.getjid(sid)
 			name = utils.getnickname(i)
 			if name == iMan.config.server.username:
 				continue
 
-			if not utils.isonline(self.parent, sid):
+			if not utils.isonline(cls.parent, sid):
 				#statuses['offline'].append('(%s)' % name)
 				continue
 
-			jid_status = self.parent.getJidStatus(sid)
+			jid_status = cls.parent.getJidStatus(sid)
 
 			for who,(status,display) in jid_status.iteritems():
 				if '@' not in unicode(who):
@@ -160,7 +141,7 @@ class Names(mounts.CommandMount):
 						name = "#%s" % name
 						continue
 
-				if utils.isactive(self.parent, who):
+				if utils.isactive(cls.parent, who):
 					if utils.isadmin(who):
 						name = "@%s" % name
 						#statuses['admins'].append(name)
@@ -171,11 +152,11 @@ class Names(mounts.CommandMount):
 					break
 
 				#Anyone not "available".
-				elif utils.isaway(self.parent, who):
-					if status in [u"away",u"xa"]:
+				elif utils.isaway(cls.parent, who):
+					if status in ["away","xa"]:
 						name = "-%s" % name
 						statuses['idle'].append(name)
-					elif status == u"dnd":
+					elif status == "dnd":
 						name = "!%s" % name
 						statuses['busy'].append(name)
 					break
@@ -192,4 +173,4 @@ class Names(mounts.CommandMount):
 		# Tack on the total number of users.
 		reply = reply % total
 
-		self.parent.sendto(user, reply)
+		cls.parent.sendto(user, reply)

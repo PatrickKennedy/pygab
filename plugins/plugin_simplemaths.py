@@ -79,7 +79,7 @@ class SimpleMathsHook(Locations.EvMsg):
 							cls.equation, answer
 						)
 					)
-					cls.timer = bot.timers.add_timer(3000, cls.new, bot)
+					cls.timer = bot.timers.add(10, cls.new, bot, repeat=False)
 
 	@classmethod
 	def make_equation(cls):
@@ -111,6 +111,7 @@ class SimpleMathsHook(Locations.EvMsg):
 		bot.sendtoall("It's time for SIMPLEMATHS!")
 		bot.sendtoall("The equation is: %s = ?" % cls.equation)
 
+	@classmethod
 	def new(cls, bot):
 		cls.equation = cls.make_equation()
 		cls.answer = eval(cls.equation)
@@ -123,7 +124,7 @@ class SimpleMathsHook(Locations.EvMsg):
 		cls.answer = 0
 		cls.running = False
 		if cls.timer is not None:
-			bot.timers.remove_timer(cls.timer)
+			bot.timers.remove(cls.timer)
 
 		bot.sendtoall("No more SIMPLEMATHS!")
 		bot.sendtoall("Thanks for playing!")

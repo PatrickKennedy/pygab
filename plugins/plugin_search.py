@@ -40,7 +40,7 @@ class Init(mounts.PluginInitializers):
 	name = __file__
 
 	def initialize(self):
-		iMan.load([utils.get_module(), 'roster'])
+		iMan.load(utils.get_module(), 'roster')
 
 	def __exit__(self, *args):
 		iMan.unload('roster')

@@ -27,28 +27,16 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import	datetime
-import	operator
-import	random
-import	re
-import	shlex
-import	threading
+import datetime
+import operator
+import random
+import re
+import shlex
+import threading
 
-from	common			import argparse, const, mounts, utils
-from	common.ini		import iMan
-
-class Init(mounts.PluginInitializers):
-	name = __file__
-
-	def initialize(self):
-		iMan.load([utils.get_module(), 'roster'])
-		iMan.load([utils.get_module(), 'mail'])
-
-	def __exit__(self, *args):
-		iMan.unload('roster')
-		iMan.unload('mail')
-		mounts.PluginInitializers.remove(self.__class__)
-
+from common import argparse, const, utils
+from common.locations import Locations
+from common.pyni import Config
 
 def delay_hookmail():
 	"""
@@ -57,28 +45,33 @@ def delay_hookmail():
 	to ignore those.
 
 	"""
-	class HookMail(mounts.HookMount):
+	class HookMail(Locations.EvOnline):
 		name = 'mail'
-		loc = [const.LOC_EV_ONLINE]
 		file = __file__
-		priority = const.PRIORITY_PERSISTANT
 
-		def thread(self, user, status):
-			username = utils.getname(user).lower()
-			if username in iMan.mail:
-				def f():
-					self.parent.sendto(
-						user, "You've got %d new messages. "
-						"Please type '/w %s !mail get' to read it." %
-						(len(iMan.mail[username].keys()), iMan.config.server.displayname)
-					)
-				self.parent.addTimer(1, f, 0, type='seconds')
-				return
+		@classmethod
+		def thread(cls, bot):
+			user, status = yield
+
+			name = utils.getname(user).lower()
+			with Config(utils.get_module(), 'mail') as mail, \
+				 Config(utils.get_module(), 'config') as config:
+				if name in mail:
+					def f():
+						bot.sendto(
+							user,
+							"You've got %d new messages. "
+							"Please type '/w %s !mail get' to read it." %
+							(len(mail[name].keys()), config.server.displayname)
+						)
+					bot.timers.add(1, f, repeat=False)
+					return
+
 t = threading.Timer(10.0, delay_hookmail)
 t.start()
 
 
-class Mail(mounts.CommandMount):
+class Mail(Locations.Command):
 	name = 'mail'
 	rank = const.RANK_USER
 	file = __file__
