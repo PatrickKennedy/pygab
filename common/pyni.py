@@ -126,7 +126,7 @@ class ConfigNode(defaultdict):
 class ConfigRoot(ConfigNode):
 
 	def __init__(self, filename, encoding='utf-8'):
-		ConfigNode.__init__(self)
+		super().__init__()
 		self._filename = filename
 		self._encoding = encoding
 
@@ -204,17 +204,14 @@ class Config(ConfigRoot):
 		path.insert(0, curdir)
 		name = path.pop().lower()
 		path.append("%s.ini" % name)
-		ConfigRoot.__init__(self, abspath(join(*path)), encoding)
+		super().__init__(abspath(join(*path)), encoding)
 
 	def __enter__(self):
 		self.read()
 		return self
 
 	def __exit__(self, exc_type, exc_val, exc_tb):
-		if exc_type:
-			self.save()
-			return False
-
+		self.save()
 
 if __name__ == '__main__':
 	import sys
