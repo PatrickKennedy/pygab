@@ -160,7 +160,8 @@ class PluginFramework(object):
 			# If the plugin has any initialization to be run, handle that here.
 			initializer = Locations.Initializers.activities.get(name)
 			if initializer:
-				initializer(self.host).process()
+				state = Locations.Initalizers.get_or_init_state(name, '__global__', self.host)
+				next(state)
 
 			if successfully_loaded:
 				loaded.append(name)
