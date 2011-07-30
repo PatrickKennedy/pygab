@@ -35,11 +35,14 @@ class Locations(type, metaclass=LocationRegistry):
 
 	Locations implementing this mount should provide the following attributes:
 
-	========  ==================================================================
-	__doc__   Please provide information on what args are passed to the handler
-			  and what the expected behavior upon returning a True truth value
-			  should be (e.g. consume message in LocEvMsg).
-	========  ==================================================================
+	==========  ================================================================
+	__doc__    	Please provide information on what args are passed to the handler
+				and what the expected behavior upon returning a True truth value
+				should be (e.g. consume message in LocEvMsg).
+
+	defined_in	Should always equal the __name__ of the file where the location
+				is defined in so people may have an easier time finding it.
+	==========  ================================================================
 
 	"""
 

@@ -39,6 +39,7 @@ import sys
 import time
 import traceback
 
+from common import locations
 from common.pyni import Config
 from sleekxmpp.xmlstream.jid import JID
 
@@ -188,15 +189,80 @@ def isadmin(user):
 	with Config(get_module(), 'roster') as ini:
 		return getname(user).lower() in ini.users.admin
 
+class Roster(Config):
+	class PreBoardUser(locations.Location): pass
+	class PostBoardUser(locations.Location): pass
+	class BoardUser(locations.Location):
+		"""Visted whenever a user is boarded to the roster
+
+		Arguments::
+
+			:user:		The JID object of the user
+			:roster:	A pyni Config object
+			:new_user:	A bool stating whether the user is resubscribing
+
+		:Truthy Return Behavior: None
+
+		"""
+		defined_in = __name__
+
+	class PreEvictUser(locations.Location): pass
+	class PostEvictUser(locations.Location): pass
+	class EvictUser(locations.Location):
+		"""Visted whenever a user is evicted from the roster
+
+		Arguments::
+
+			:user:		The JID object of the user
+			:roster:	A pyni Config object
+
+		:Truthy Return Behavior: None
+
+		"""
+		defined_in = __name__
+
+	def __init__(self):
+		super().__init__(get_module(), 'roster')
+
+	@BoardUser.include_location_wrappers()
+	@staticmethod
+	def board(user):
+		with Roster() as roster:
+			new_user = user.bare not in roster
+
+			roster[user.bare].rank = ['user']
+			roster[user.bare].subscription = {'to'};
+			BoardUser.visit(user, roster, new_user)
+
+	@EvictUser.include_location_wrappers()
+	@staticmethod
+	def evict(user):
+		with Roster() as roster:
+			roster.users[user.bare].rank = ['user']
+			EvictUser.visit(user, roster)
+
+	@staticmethod
+	def is_admin(user):
+		with Roster() as roster:
+			return 'admin' in roster.users[user.bare].rank
+
+	@staticmethod
+	def is_mod(user):
+		with Roster() as roster:
+			return 'mod' in roster.users[user.bare].rank
+
+	@staticmethod
+	def is_voiced(user):
+		with Roster() as roster:
+			return 'voiced' in roster.users[user.bare].rank
+
+	@staticmethod
+	def is_banned(user):
+		with Roster() as roster:
+			return 'banned' in roster.users[user.bare].rank
 
 #=====
 #= Misc (Ordered Alphabetically)
-def addUser(jid):
-	jid = unicode(jid.bare)
-	iMan.set_entry('roster', jid, "last_login", time.time())
-	iMan.set_entry('roster', jid, "last_message", time.time())
-	set_attr(jid, 'rank', const.RANK_USER)
-
 def formattime(time_tuple, format=''):
 	"""formattime(tuple time, str format=iMan.config.system.timeformat) -> str
 
