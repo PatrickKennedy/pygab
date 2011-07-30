@@ -28,7 +28,6 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from common import pyni
-from core.utils import *
 
 def isbanned(user):
 	with pyni.Config(get_module(), 'config') as ini:

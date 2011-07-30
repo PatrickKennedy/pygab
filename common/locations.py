@@ -27,18 +27,15 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from common	import utils
+import os
+import sys
 
 from core.locations import *
 
+module = os.path.splitext(os.path.split(sys.argv[0])[1])[0]
+
 try:
-	exec(
-		utils.get_import(
-			mod=utils.get_module(),
-			from_=['locations'],
-			import_=['*']
-		)
-	)
+	exec("from %s.locations import *" % module)
 except ImportError as e:
 	# If the bot module doesn't overwrite anything, no problem.
 	# If the bot module doesn't overwrite anything, no problem.
