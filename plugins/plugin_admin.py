@@ -33,9 +33,9 @@ import shlex
 import sys
 import time
 
-from datetime	import	datetime
+from datetime import datetime
 
-from common import const, mounts, utils
+from common import const, utils
 from common.locations import Locations
 from common.pyni import Config
 
@@ -114,7 +114,7 @@ class ToggleCommand(Command):
 
 		for name in names.split(','):
 			name = name.strip()
-			cmd = self.hooks.get(name)
+			cmd = self.activities.get(name)
 			if not cmd:
 				bot.sendto(user, "Unknown Command: %s" % name)
 				return

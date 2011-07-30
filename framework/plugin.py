@@ -36,7 +36,7 @@ import re
 import sys
 import traceback
 
-from common	import const, mounts, utils
+from common	import const, utils
 from common.ini	import iMan
 from common.locations import Locations
 
