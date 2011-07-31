@@ -60,7 +60,7 @@ def attach_hooks(hook_name=''):
 			if not pre_hook:
 				plugin_log.error("Missing Pre Hook for %s" % name)
 			else:
-				pre_hook.evaluate(*args, **kwargs)
+				pre_hook.visit(*args, **kwargs)
 
 			func(self, *args, **kwargs)
 
@@ -68,7 +68,7 @@ def attach_hooks(hook_name=''):
 			if not post_hook:
 				plugin_log.error("Missing Post Hook for %s" % name)
 			else:
-				post_hook.evaluate(*args, **kwargs)
+				post_hook.visit(*args, **kwargs)
 
 		return wrapper
 	return decorator
@@ -93,7 +93,7 @@ def attach_post_hook(hook_name=''):
 			if not post_hook:
 				plugin_log.error("Missing Post Hook for %s" % name)
 			else:
-				post_hook.evaluate(*args, **kwargs)
+				post_hook.visit(*args, **kwargs)
 		return wrapper
 	return decorator
 
@@ -207,7 +207,7 @@ class PluginFramework(object):
 					successfully_loaded += 1
 
 			# If the plugin has any initialization to be run, handle that here.
-			initializer = Locations.Initializers.hooks.get(name)
+			initializer = Locations.Initializers.activities.get(name)
 			if initializer:
 				initializer(self.host).process()
 
@@ -271,5 +271,5 @@ class PluginFramework(object):
 	def _unload(self, name, path):
 		plugin_log.info("Unloading Plugin (%s: %s)" % (name, path))
 		for location in Locations:
-			for hook in location.get_hooks_for(path):
-				hook.remove()
+			for activity in location.get_activities_for(path):
+				activity.remove()

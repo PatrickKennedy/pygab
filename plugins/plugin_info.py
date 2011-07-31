@@ -76,7 +76,7 @@ class Help(Command):
 			const.RANK_HIDDEN: [],
 			const.RANK_BANNED: [],
 		}
-		for (name, cmd) in Command.hooks.items():
+		for (name, cmd) in Command.activities.items():
 			#TODO: Skip commands if a user doesn't match the command's rank.
 			lists[cmd.rank].append(name)
 

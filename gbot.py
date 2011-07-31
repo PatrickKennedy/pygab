@@ -62,13 +62,13 @@ class Bot(BotTemplate):
 	def _send_msg(self, msg):
 		"""Takes a message stanza rather than a jid and message"""
 		user = msg['to']
-		if Locations.SendMsgPerUser.evaluate(user, msg):
+		if Locations.SendMsgPerUser.visit(user, msg):
 			return
 
 		for resource, presence in self.xmpp.roster[user.bare]['presence'].items():
 			user.resource = resource
 			# This should logically be moved to a hook.
-			if Locations.SendMsgPerResource.evaluate(user, resource, msg) or \
+			if Locations.SendMsgPerResource.visit(user, resource, msg) or \
 				presence['show'] in ["available", "online", "chat"]:
 					self.xmpp.send(msg)
 		return
@@ -76,7 +76,7 @@ class Bot(BotTemplate):
 		for resource,(show,status) in self.getJidStatus(user).items():
 			# Ignore people who aren't online
 			# XXX: The message needs to be updated for each resource
-			if Locations.SendMsgPerResource.evaluate(user, resource, msg) or \
+			if Locations.SendMsgPerResource.visit(user, resource, msg) or \
 				show in ["online", "chat"]:
 				self.xmpp.send(msg)
 
@@ -89,8 +89,8 @@ class Bot(BotTemplate):
 			mfrom=self.xmpp.boundjid
 		)
 
-		if	Locations.SendToAll.evaluate(message) or \
-			Locations.SendMsgPerMsg.evaluate(message):
+		if	Locations.SendToAll.visit(message) or \
+			Locations.SendMsgPerMsg.visit(message):
 				return
 
 		text = message['body']
@@ -112,8 +112,8 @@ class Bot(BotTemplate):
 			text,
 			mfrom=self.xmpp.boundjid
 		)
-		if	Locations.SendTo.evaluate(message) or \
-			Locations.SendMsgPerMsg.evaluate(message):
+		if	Locations.SendTo.visit(message) or \
+			Locations.SendMsgPerMsg.visit(message):
 				return
 
 		self._send_msg(message)
@@ -136,7 +136,7 @@ class Bot(BotTemplate):
 
 	def ev_msg(self, event):
 		chat_log.info("%s -> %s" % (event['from'].bare, event['body']))
-		Locations.EvMsg.evaluate(self, event["from"], event)
+		Locations.EvMsg.visit(self, event["from"], event)
 		#self.xmpp.sendMessage(event["from"], event["body"])
 
 

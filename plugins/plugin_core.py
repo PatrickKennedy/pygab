@@ -27,9 +27,12 @@ class Command(Location):
 
 	=====  =====================================================================
 
-	Arguments:
-		user - The JID of the calling users
-		*args - The string following the command
+	Arguments::
+
+		:user:  The JID of the calling users
+		:*args: The string following the command
+
+	:Truthy Return Behavior: None
 
 	"""
 
@@ -49,7 +52,7 @@ class CommandDispatch(Locations.EvMsg):
 	@staticmethod
 	def is_authorized(cmd_name, user):
 		authorized = True
-		cmd_class = Command.hooks[cmd_name]
+		cmd_class = Command.activities[cmd_name]
 		if cmd_class.rank in [const.RANK_USER, const.RANK_HIDDEN]:
 			pass
 
