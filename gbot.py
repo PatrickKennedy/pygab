@@ -51,6 +51,7 @@ class Bot(BotTemplate):
 			)
 			self.plugins.load(*ini.system.plugins)
 
+		self.xmpp.auto_authorize = None
 		self.xmpp.schedule('bot_process', 1, self.timers.process, repeat=True)
 
 	def run(self):
@@ -137,8 +138,46 @@ class Bot(BotTemplate):
 	@Locations.EvMsg.include_location_wrappers()
 	def ev_msg(self, event):
 		chat_log.info("%s -> %s" % (event['from'].bare, event['body']))
-		Locations.EvMsg.visit(self, event["from"], event)
-		#self.xmpp.sendMessage(event["from"], event["body"])
+		Locations.EvMsg.visit(self, event['from'], event)
+
+	@Locations.EvUnsubscribe.include_location_wrappers()
+	def ev_unsubscribe(self, presence):
+		jid = presence['from']
+
+		self.xmpp.send_presence(pto=jid, ptype='unsubscribed')
+		roster[jid.bare]['subscription'].discard('to')
+
+		if Locations.EvUnsubscribe.visit(self, presence):
+			return
+
+		# User removed us from their list so lets remove them from ours.
+		self.xmpp.send_presence(pto=jid, ptype='unsubscribe')
+		roster[jid.bare]['subscription'].discard('from')
+
+	@Locations.EvSubscribe.include_location_wrappers()
+	def ev_subscribe(self, presence):
+		jid = presence['from']
+
+		if Locations.EvSubscribe.visit(self, presence):
+			# We've decided to reject them so we need to state that formally.
+			self.xmpp.send_presence(pto=jid, ptype='unsubscribe')
+			return
+
+		# User added us to their list, so add them to ours
+		self.xmpp.send_presence(pto=jid, ptype='subscribed')
+
+		#TODO: Handle accepting subscriptions with nicks
+		utils.Roster.board(jid)
+		with utils.Roster() as roster:
+			if 'from' not in roster[jid.bare]['subscription']:
+				self.xmpp.send_presence(pto=jid, ptype='subscribe')
+
+	@Locations.EvSubscribed.include_location_wrappers()
+	def ev_subscribed(self, presence):
+		Locations.EvSubscrubed.visit(self, presence)
+
+		with utils.Roster() as roster:
+			roster[presence['from'].bare]['subscription'].add('from')
 
 
 def initalize_loggers():
