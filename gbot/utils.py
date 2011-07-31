@@ -30,11 +30,11 @@
 from common import pyni
 
 def isbanned(user):
-	with pyni.Config(get_module(), 'config') as ini:
-		return getname(user).lower() in ini.users.banned
+	with pyni.Config('gbot', 'config') as ini:
+		return user.bare in ini.users.banned
 def ismod(user):
-	with pyni.Config(get_module(), 'config') as ini:
-		return getname(user).lower() in ini.users.mod
+	with pyni.Config('gbot', 'config') as ini:
+		return user.bare in ini.users.mod
 def isadmin(user):
-	with pyni.Config(get_module(), 'config') as ini:
-		return getname(user).lower() in ini.users.admin
+	with pyni.Config('gbot', 'config') as ini:
+		return user.bare in ini.users.admin
