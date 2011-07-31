@@ -44,8 +44,7 @@ class Bot(BotTemplate):
 		self.timers = TimerFramework()
 
 		with pyni.Config(utils.get_module(), 'config') as ini:
-			BotTemplate.__init__(
-				self,
+			super().__init__(
 				"%s@%s/%s" % (ini.server.username, ini.server.domain, ini.server.resource),
 				ini.server.password
 			)
@@ -144,6 +143,8 @@ class Bot(BotTemplate):
 	def ev_unsubscribe(self, presence):
 		jid = presence['from']
 
+		net_log.info('recieved unsubscribe request from %s' % presence['from'])
+
 		self.xmpp.send_presence(pto=jid, ptype='unsubscribed')
 		roster[jid.bare]['subscription'].discard('to')
 
@@ -157,6 +158,8 @@ class Bot(BotTemplate):
 	@Locations.EvSubscribe.include_location_wrappers()
 	def ev_subscribe(self, presence):
 		jid = presence['from']
+
+		net_log.info('recieved subscribe request from %s' % presence['from'])
 
 		if Locations.EvSubscribe.visit(self, presence):
 			# We've decided to reject them so we need to state that formally.
@@ -175,6 +178,8 @@ class Bot(BotTemplate):
 	@Locations.EvSubscribed.include_location_wrappers()
 	def ev_subscribed(self, presence):
 		Locations.EvSubscrubed.visit(self, presence)
+
+		net_log.info('recieved subscribed confirmation from %s' % presence['from'])
 
 		with utils.Roster() as roster:
 			roster[presence['from'].bare]['subscription'].add('from')
