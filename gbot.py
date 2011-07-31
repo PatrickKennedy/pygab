@@ -33,7 +33,7 @@ import logging
 from common import pyni, utils
 from common.locations import Locations
 from framework.bot import BotTemplate
-from framework.plugin import attach_hooks, attach_post_hook, PluginFramework
+from framework.plugin import PluginFramework
 from framework.timers import TimerFramework
 
 #logging.basicConfig(level=logging.NOTSET)
@@ -134,6 +134,7 @@ class Bot(BotTemplate):
 		with pyni.Config(utils.get_module(), 'config') as ini:
 			self.xmpp.sendPresence(pstatus=ini.system.status)
 
+	@Locations.EvMsg.include_location_wrappers()
 	def ev_msg(self, event):
 		chat_log.info("%s -> %s" % (event['from'].bare, event['body']))
 		Locations.EvMsg.visit(self, event["from"], event)

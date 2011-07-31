@@ -48,55 +48,6 @@ _handler = logging.handlers.RotatingFileHandler(
 _handler.setLevel(logging.ERROR)
 plugin_log.addHandler(_handler)
 
-def attach_hooks(hook_name=''):
-	"""Attach both pre- and -post hooks.
-
-	"""
-	def decorator(func):
-		def wrapper(self, *args, **kwargs):
-			name = hook_name or func.__name__
-
-			pre_hook = Locations.plugins.get('Pre%s' % name)
-			if not pre_hook:
-				plugin_log.error("Missing Pre Hook for %s" % name)
-			else:
-				pre_hook.visit(*args, **kwargs)
-
-			func(self, *args, **kwargs)
-
-			post_hook = Locations.plugins.get('Post%s' % name)
-			if not post_hook:
-				plugin_log.error("Missing Post Hook for %s" % name)
-			else:
-				post_hook.visit(*args, **kwargs)
-
-		return wrapper
-	return decorator
-
-
-def attach_post_hook(hook_name=''):
-	"""Attach only the -post hook.
-
-	For use if there is a critical check before the pre- hook which requires it
-	to be defined within the function itself.
-
-	ex. "if msg.sender == bot.jid"
-
-	"""
-	def decorator(func):
-		def wrapper(self, *args, **kwargs):
-			name = hook_name or func.__name__
-
-			func(self, *args, **kwargs)
-
-			post_hook = Locations.plugins.get('Post%s' % name)
-			if not post_hook:
-				plugin_log.error("Missing Post Hook for %s" % name)
-			else:
-				post_hook.visit(*args, **kwargs)
-		return wrapper
-	return decorator
-
 
 class PluginFramework(object):
 	"""

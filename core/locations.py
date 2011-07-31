@@ -29,6 +29,7 @@
 
 from framework.pluginregistry import LocationRegistry
 
+
 class Locations(type, metaclass=LocationRegistry):
 	"""Stores Location classes in a centralized location.
 
@@ -166,6 +167,57 @@ class Location(metaclass=Locations):
 	@classmethod
 	def get_activities_for(self, path):
 		return (activity for activity in list(self.activities.values()) if activity.file == path)
+
+	@classmethod
+	def include_location_wrappers(cls):
+		"""Visit both pre- and -post locations.
+
+		"""
+		def decorator(func):
+			def wrapper(self, *args, **kwargs):
+				name = cls.__name__
+
+				pre_location = Locations.plugins.get('Pre%s' % name)
+				if not pre_location:
+					plugin_log.error("Missing Pre Hook for %s" % name)
+				else:
+					pre_location.visit(*args, **kwargs)
+
+				func(self, *args, **kwargs)
+
+				post_location = Locations.plugins.get('Post%s' % name)
+				if not post_location:
+					plugin_log.error("Missing Post Location for %s" % name)
+				else:
+					post_location.visit(*args, **kwargs)
+
+			return wrapper
+		return decorator
+
+	@classmethod
+	def include_post_wrapper(cls):
+		"""Visit only the Post- location.
+
+		For use if there is a critical check before the Pre- activity which requires
+		it to be defined within the function itself.
+
+		ex. "if msg.sender == bot.jid"
+
+		"""
+		def decorator(func):
+			def wrapper(self, *args, **kwargs):
+				name = cls.__name__
+
+				func(self, *args, **kwargs)
+
+				post_location = Locations.plugins.get('Post%s' % name)
+				if not post_location:
+					plugin_log.error("Missing Post Location for %s" % name)
+				else:
+					post_location.visit(*args, **kwargs)
+			return wrapper
+		return decorator
+
 
 
 class Initializers(Location): pass
